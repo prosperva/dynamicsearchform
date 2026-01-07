@@ -38,12 +38,17 @@ export const PillField: React.FC<PillFieldProps> = ({
   allowRanges = false,
   tooltip,
 }) => {
-  // Join array values into comma-separated string for textarea display
-  const textValue = value.join(', ');
+  // Track the textarea input separately from the processed values
+  const [inputText, setInputText] = useState(value.join(', '));
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState(false);
 
   const COMPACT_DISPLAY_LIMIT = 20;
+
+  // Update inputText when value changes externally (e.g., delete chip)
+  React.useEffect(() => {
+    setInputText(value.join(', '));
+  }, [value.join(', ')]);
 
   const expandRange = (rangeStr: string): number[] => {
     const [start, end] = rangeStr.split('-').map(num => parseInt(num.trim(), 10));
@@ -105,12 +110,31 @@ export const PillField: React.FC<PillFieldProps> = ({
   };
 
   const handleTextChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const inputText = event.target.value;
+    const newInputText = event.target.value;
+    setInputText(newInputText);
     setError('');
 
-    const newValues = processInput(inputText);
-    if (newValues.length > 0 || inputText.trim() === '') {
-      onChange(name, newValues);
+    // For textarea, just split by comma without expanding ranges
+    // Ranges will be expanded only when user presses Enter
+    if (newInputText.trim() === '') {
+      onChange(name, []);
+    } else {
+      const parts = newInputText.split(',').map(p => p.trim()).filter(p => p);
+      onChange(name, parts);
+    }
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      setError('');
+
+      // Expand ranges when user presses Enter
+      const newValues = processInput(inputText);
+      if (newValues.length > 0) {
+        onChange(name, newValues);
+        setInputText(newValues.join(', '));
+      }
     }
   };
 
@@ -150,9 +174,10 @@ export const PillField: React.FC<PillFieldProps> = ({
         multiline
         rows={3}
         label={labelWithTooltip}
-        value={textValue}
+        value={inputText}
         onChange={handleTextChange}
-        placeholder={placeholder || (allowRanges ? 'Enter comma-separated values or ranges (e.g., 100-150, 178)' : 'Enter comma-separated values')}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder || (allowRanges ? 'Enter comma-separated values or ranges (e.g., 100-150, 178). Press Enter to expand ranges.' : 'Enter comma-separated values')}
         variant="outlined"
         error={!!error}
         required={required}
