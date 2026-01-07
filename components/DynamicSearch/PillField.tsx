@@ -45,10 +45,8 @@ export const PillField: React.FC<PillFieldProps> = ({
 
   const COMPACT_DISPLAY_LIMIT = 20;
 
-  // Update inputText when value changes externally (e.g., delete chip)
-  React.useEffect(() => {
-    setInputText(value.join(', '));
-  }, [value.join(', ')]);
+  // No automatic sync - inputText stays as user typed it
+  // It only updates when user types or when chips are deleted (handled in handleDelete)
 
   const expandRange = (rangeStr: string): number[] => {
     const [start, end] = rangeStr.split('-').map(num => parseInt(num.trim(), 10));
@@ -130,10 +128,12 @@ export const PillField: React.FC<PillFieldProps> = ({
       setError('');
 
       // Expand ranges when user presses Enter
+      // Keep the original input text (with ranges) in the textarea
+      // Only expand for the value/chips display
       const newValues = processInput(inputText);
       if (newValues.length > 0) {
         onChange(name, newValues);
-        setInputText(newValues.join(', '));
+        // Don't update inputText - keep user's original input with ranges
       }
     }
   };
@@ -141,10 +141,13 @@ export const PillField: React.FC<PillFieldProps> = ({
   const handleDelete = (valueToDelete: string) => {
     const newValues = value.filter(v => v !== valueToDelete);
     onChange(name, newValues);
+    // Update inputText to reflect the deletion
+    setInputText(newValues.join(', '));
   };
 
   const handleClearAll = () => {
     onChange(name, []);
+    setInputText('');
   };
 
   const labelWithTooltip = tooltip ? (
