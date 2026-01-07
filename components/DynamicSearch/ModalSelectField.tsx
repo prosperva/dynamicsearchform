@@ -1,0 +1,341 @@
+'use client';
+
+import React, { useState, useMemo, useEffect } from 'react';
+import {
+  TextField,
+  Box,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  InputAdornment,
+  Stack,
+  Tooltip,
+  IconButton,
+  CircularProgress,
+  Checkbox,
+} from '@mui/material';
+import {
+  Search as SearchIcon,
+  Clear as ClearIcon,
+  HelpOutline as HelpIcon,
+} from '@mui/icons-material';
+import { DropdownOption } from './types';
+
+interface ModalSelectFieldProps {
+  label: string;
+  name: string;
+  value: string | number | (string | number)[];
+  onChange: (name: string, value: string | number | (string | number)[]) => void;
+  options?: DropdownOption[];
+  apiUrl?: string;
+  apiLabelField?: string;
+  apiValueField?: string;
+  placeholder?: string;
+  helperText?: string;
+  required?: boolean;
+  tooltip?: string;
+  allowMultiple?: boolean;
+}
+
+export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
+  label,
+  name,
+  value,
+  onChange,
+  options: staticOptions,
+  apiUrl,
+  apiLabelField,
+  apiValueField,
+  placeholder,
+  helperText,
+  required,
+  tooltip,
+  allowMultiple = false,
+}) => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [filterText, setFilterText] = useState('');
+  const [selectedValue, setSelectedValue] = useState<string | number | (string | number)[]>(
+    allowMultiple ? (Array.isArray(value) ? value : []) : (value || '')
+  );
+  const [apiOptions, setApiOptions] = useState<DropdownOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+
+  // Use static options if provided, otherwise use API options
+  const options = staticOptions || apiOptions;
+
+  // Fetch data from API when modal opens (lazy loading)
+  useEffect(() => {
+    if (modalOpen && apiUrl && !staticOptions && !hasLoadedOnce) {
+      fetchOptions();
+    }
+  }, [modalOpen, apiUrl, staticOptions, hasLoadedOnce]);
+
+  const fetchOptions = async () => {
+    if (!apiUrl) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+
+      // Map API response to DropdownOption format
+      const labelField = apiLabelField || 'label';
+      const valueField = apiValueField || 'value';
+
+      const mappedOptions: DropdownOption[] = data.map((item: any) => ({
+        label: item[labelField],
+        value: item[valueField],
+      }));
+
+      setApiOptions(mappedOptions);
+      setHasLoadedOnce(true);
+    } catch (error) {
+      console.error(`Error fetching options for ${name}:`, error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get display text for selected value(s)
+  const displayText = useMemo(() => {
+    if (allowMultiple && Array.isArray(value)) {
+      if (value.length === 0) return '';
+      const labels = value
+        .map(v => options.find(opt => opt.value === v)?.label)
+        .filter(Boolean);
+      return labels.join(', ');
+    }
+    const selectedOption = options.find((opt) => opt.value === value);
+    return selectedOption ? selectedOption.label : '';
+  }, [value, options, allowMultiple]);
+
+  // Filter options based on search text
+  const filteredOptions = useMemo(() => {
+    if (!filterText.trim()) return options;
+    const searchLower = filterText.toLowerCase();
+    return options.filter((opt) =>
+      opt.label.toLowerCase().includes(searchLower)
+    );
+  }, [filterText, options]);
+
+  const handleOpenModal = () => {
+    if (allowMultiple) {
+      setSelectedValue(Array.isArray(value) ? value : []);
+    } else {
+      setSelectedValue(value || '');
+    }
+    setFilterText('');
+    setModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setFilterText('');
+  };
+
+  const handleSelectOption = (optionValue: string | number) => {
+    if (allowMultiple) {
+      setSelectedValue(prev => {
+        const currentValues = Array.isArray(prev) ? prev : [];
+        // Toggle selection
+        if (currentValues.includes(optionValue)) {
+          return currentValues.filter(v => v !== optionValue);
+        } else {
+          return [...currentValues, optionValue];
+        }
+      });
+    } else {
+      setSelectedValue(optionValue);
+    }
+  };
+
+  const handleDone = () => {
+    onChange(name, selectedValue);
+    handleCloseModal();
+  };
+
+  const handleClear = () => {
+    if (allowMultiple) {
+      onChange(name, []);
+    } else {
+      onChange(name, '');
+    }
+  };
+
+  const isSelected = (optionValue: string | number): boolean => {
+    if (allowMultiple && Array.isArray(selectedValue)) {
+      return selectedValue.includes(optionValue);
+    }
+    return selectedValue === optionValue;
+  };
+
+  const labelWithTooltip = tooltip ? (
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+      {label}
+      <Tooltip title={tooltip} arrow placement="top" enterDelay={200} leaveDelay={200}>
+        <Box
+          component="span"
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            ml: 0.5,
+            cursor: 'help',
+            color: 'action.active',
+          }}
+        >
+          <HelpIcon fontSize="small" sx={{ fontSize: '1rem' }} />
+        </Box>
+      </Tooltip>
+    </Box>
+  ) : (
+    label
+  );
+
+  return (
+    <Box>
+      <TextField
+        fullWidth
+        label={labelWithTooltip}
+        value={displayText}
+        placeholder={placeholder || 'Click Select to choose...'}
+        helperText={helperText}
+        required={required}
+        variant="outlined"
+        disabled
+        slotProps={{
+          input: {
+            readOnly: true,
+          },
+        }}
+      />
+
+      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={handleOpenModal}
+          size="small"
+        >
+          Select
+        </Button>
+        {((allowMultiple && Array.isArray(value) && value.length > 0) || (!allowMultiple && value)) && (
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={handleClear}
+            size="small"
+            startIcon={<ClearIcon />}
+          >
+            Clear
+          </Button>
+        )}
+      </Stack>
+
+      {/* Modal Dialog */}
+      <Dialog
+        open={modalOpen}
+        onClose={handleCloseModal}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: { height: '70vh', maxHeight: '600px' },
+          },
+        }}
+      >
+        <DialogTitle>{label}</DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          {/* Filter Input */}
+          <Box sx={{ p: 2, pb: 1, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1 }}>
+            <TextField
+              fullWidth
+              placeholder="Filter options..."
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              autoFocus
+              disabled={loading}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                  endAdornment: filterText && (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setFilterText('')}>
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          </Box>
+
+          {/* Options List */}
+          <List sx={{ pt: 0 }}>
+            {loading ? (
+              <ListItem>
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', py: 4 }}>
+                  <CircularProgress size={40} />
+                </Box>
+              </ListItem>
+            ) : filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => (
+                <ListItem key={option.value} disablePadding>
+                  <ListItemButton
+                    selected={isSelected(option.value)}
+                    onClick={() => handleSelectOption(option.value)}
+                  >
+                    {allowMultiple && (
+                      <Checkbox
+                        edge="start"
+                        checked={isSelected(option.value)}
+                        tabIndex={-1}
+                        disableRipple
+                        sx={{ mr: 1 }}
+                      />
+                    )}
+                    <ListItemText primary={option.label} />
+                  </ListItemButton>
+                </ListItem>
+              ))
+            ) : (
+              <ListItem>
+                <ListItemText
+                  primary="No options found"
+                  secondary="Try adjusting your filter"
+                  sx={{ textAlign: 'center', color: 'text.secondary' }}
+                />
+              </ListItem>
+            )}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseModal}>Cancel</Button>
+          <Button
+            onClick={handleDone}
+            variant="contained"
+            disabled={
+              loading ||
+              (allowMultiple
+                ? Array.isArray(selectedValue) && selectedValue.length === 0
+                : !selectedValue
+              )
+            }
+          >
+            Done
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
