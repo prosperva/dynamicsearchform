@@ -24,6 +24,7 @@ interface PillFieldProps {
   pillType?: 'number' | 'text';
   allowRanges?: boolean;
   tooltip?: string;
+  error?: string;
 }
 
 export const PillField: React.FC<PillFieldProps> = ({
@@ -37,10 +38,11 @@ export const PillField: React.FC<PillFieldProps> = ({
   pillType = 'text',
   allowRanges = false,
   tooltip,
+  error,
 }) => {
   // Track the textarea input separately from the processed values
   const [inputText, setInputText] = useState(value.join(', '));
-  const [error, setError] = useState('');
+  const [internalError, setInternalError] = useState('');
   const [expanded, setExpanded] = useState(false);
 
   const COMPACT_DISPLAY_LIMIT = 20;
@@ -80,12 +82,12 @@ export const PillField: React.FC<PillFieldProps> = ({
             const rangeNumbers = expandRange(part);
             expanded.push(...rangeNumbers.map(String));
           } catch (err) {
-            setError((err as Error).message);
+            setInternalError((err as Error).message);
             return [];
           }
         } else {
           if (pillType === 'number' && isNaN(Number(part))) {
-            setError('Invalid number format');
+            setInternalError('Invalid number format');
             return [];
           }
           expanded.push(part);
@@ -97,7 +99,7 @@ export const PillField: React.FC<PillFieldProps> = ({
       const parts = trimmed.split(',').map(p => p.trim()).filter(p => p);
       for (const part of parts) {
         if (isNaN(Number(part))) {
-          setError('Invalid number format');
+          setInternalError('Invalid number format');
           return [];
         }
       }
@@ -110,7 +112,7 @@ export const PillField: React.FC<PillFieldProps> = ({
   const handleTextChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newInputText = event.target.value;
     setInputText(newInputText);
-    setError('');
+    setInternalError('');
 
     // For textarea, just split by comma without expanding ranges
     // Ranges will be expanded only when user presses Enter
@@ -125,7 +127,7 @@ export const PillField: React.FC<PillFieldProps> = ({
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      setError('');
+      setInternalError('');
 
       // Expand ranges when user presses Enter
       // Keep the original input text (with ranges) in the textarea

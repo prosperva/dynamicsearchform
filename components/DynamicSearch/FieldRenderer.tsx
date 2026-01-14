@@ -31,6 +31,7 @@ interface FieldRendererProps {
   field: FieldConfig;
   value: any;
   onChange: (name: string, value: any) => void;
+  error?: string;
 }
 
 // Helper component to render label with optional tooltip
@@ -58,7 +59,7 @@ const LabelWithTooltip: React.FC<{ label: string; tooltip?: string }> = ({ label
   );
 };
 
-export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onChange }) => {
+export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onChange, error }) => {
   const [options, setOptions] = useState<DropdownOption[]>(field.options || []);
   const [loading, setLoading] = useState(false);
 
@@ -67,6 +68,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
       fetchOptions();
     }
   }, [field.apiUrl]);
+
 
   const fetchOptions = async () => {
     if (!field.apiUrl) return;
@@ -116,9 +118,10 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           value={value || ''}
           onChange={(e) => handleChange(e.target.value)}
           placeholder={field.placeholder}
-          helperText={field.helperText}
+          helperText={error || field.helperText}
           required={field.required}
           variant="outlined"
+          error={!!error}
         />
       );
 
@@ -132,9 +135,10 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           value={value || ''}
           onChange={(e) => handleChange(e.target.value)}
           placeholder={field.placeholder}
-          helperText={field.helperText}
+          helperText={error || field.helperText}
           required={field.required}
           variant="outlined"
+          error={!!error}
         />
       );
 
@@ -151,8 +155,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
               textField: {
                 fullWidth: true,
                 required: field.required,
-                helperText: field.helperText,
+                helperText: error || field.helperText,
                 variant: 'outlined',
+                error: !!error,
               },
             }}
           />
@@ -176,8 +181,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
               {...params}
               label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
               required={field.required}
-              helperText={field.helperText}
+              helperText={error || field.helperText}
               variant="outlined"
+              error={!!error}
             />
           )}
           fullWidth
@@ -213,8 +219,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
                 {...params}
                 label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
                 required={field.required}
-                helperText={field.helperText}
+                helperText={error || field.helperText}
                 variant="outlined"
+                error={!!error}
               />
             )}
             renderTags={(value, getTagProps) =>
@@ -267,7 +274,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
 
     case 'radio':
       return (
-        <FormControl component="fieldset" required={field.required}>
+        <FormControl component="fieldset" required={field.required} error={!!error}>
           <FormLabel component="legend">
             <LabelWithTooltip label={field.label} tooltip={field.tooltip} />
           </FormLabel>
@@ -285,7 +292,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
               />
             ))}
           </RadioGroup>
-          {field.helperText && <FormHelperText>{field.helperText}</FormHelperText>}
+          {(error || field.helperText) && (
+            <FormHelperText>{error || field.helperText}</FormHelperText>
+          )}
         </FormControl>
       );
 
@@ -302,6 +311,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           pillType={field.pillType}
           allowRanges={field.allowRanges}
           tooltip={field.tooltip}
+          error={error}
         />
       );
 
@@ -348,6 +358,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           required={field.required}
           tooltip={field.tooltip}
           allowMultiple={field.allowMultiple}
+          error={error}
         />
       );
 

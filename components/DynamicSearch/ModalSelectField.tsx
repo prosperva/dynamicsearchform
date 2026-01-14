@@ -41,6 +41,7 @@ interface ModalSelectFieldProps {
   required?: boolean;
   tooltip?: string;
   allowMultiple?: boolean;
+  error?: string;
 }
 
 export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
@@ -57,6 +58,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
   required,
   tooltip,
   allowMultiple = false,
+  error,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [filterText, setFilterText] = useState('');
@@ -69,6 +71,15 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
 
   // Use static options if provided, otherwise use API options
   const options = staticOptions || apiOptions;
+
+  // Sync selectedValue with value prop when it changes
+  useEffect(() => {
+    if (allowMultiple) {
+      setSelectedValue(Array.isArray(value) ? value : []);
+    } else {
+      setSelectedValue(value || '');
+    }
+  }, [value, allowMultiple]);
 
   // Fetch data from API when modal opens (lazy loading)
   useEffect(() => {
@@ -126,11 +137,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
   }, [filterText, options]);
 
   const handleOpenModal = () => {
-    if (allowMultiple) {
-      setSelectedValue(Array.isArray(value) ? value : []);
-    } else {
-      setSelectedValue(value || '');
-    }
+    // selectedValue is already synced via useEffect, no need to set it again
     setFilterText('');
     setModalOpen(true);
   };
@@ -205,10 +212,11 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
         label={labelWithTooltip}
         value={displayText}
         placeholder={placeholder || 'Click Select to choose...'}
-        helperText={helperText}
+        helperText={error || helperText}
         required={required}
         variant="outlined"
         disabled
+        error={!!error}
         slotProps={{
           input: {
             readOnly: true,

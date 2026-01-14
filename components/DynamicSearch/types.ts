@@ -28,6 +28,8 @@ export type SearchVisibility = 'user' | 'global';
 
 export type ColumnLayout = 'auto' | 1 | 2 | 3 | 4;
 
+export type ModalPosition = 'center' | 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
 export interface SavedSearch {
   id: string;
   name: string;
@@ -56,4 +58,6 @@ export interface DynamicSearchProps {
   allowCrossContext?: boolean;
   isAdmin?: boolean;
   columnLayout?: ColumnLayout;
+  initialValues?: Record<string, any>;
+  modalPosition?: ModalPosition; // Position of all dialogs (default: 'center')
 }

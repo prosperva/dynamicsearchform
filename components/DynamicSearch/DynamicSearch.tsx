@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -9,6 +9,8 @@ import {
   Typography,
   Dialog,
   DialogTitle,
+  SxProps,
+  Theme,
   DialogContent,
   DialogActions,
   TextField,
@@ -45,8 +47,82 @@ import {
   Delete as DeleteIcon,
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
-import { DynamicSearchProps, SavedSearch, SearchVisibility } from './types';
+import { DynamicSearchProps, SavedSearch, SearchVisibility, ModalPosition } from './types';
 import { FieldRenderer } from './FieldRenderer';
+
+// Helper function to get dialog positioning styles
+const getDialogStyles = (position: ModalPosition = 'center'): SxProps<Theme> => {
+  const positions: Record<ModalPosition, SxProps<Theme>> = {
+    center: {
+      '& .MuiDialog-container': {
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+    },
+    top: {
+      '& .MuiDialog-container': {
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        pt: 4,
+      },
+    },
+    bottom: {
+      '& .MuiDialog-container': {
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        pb: 4,
+      },
+    },
+    left: {
+      '& .MuiDialog-container': {
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        pl: 4,
+      },
+    },
+    right: {
+      '& .MuiDialog-container': {
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        pr: 4,
+      },
+    },
+    'top-left': {
+      '& .MuiDialog-container': {
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start',
+        pt: 4,
+        pl: 4,
+      },
+    },
+    'top-right': {
+      '& .MuiDialog-container': {
+        alignItems: 'flex-start',
+        justifyContent: 'flex-end',
+        pt: 4,
+        pr: 4,
+      },
+    },
+    'bottom-left': {
+      '& .MuiDialog-container': {
+        alignItems: 'flex-end',
+        justifyContent: 'flex-start',
+        pb: 4,
+        pl: 4,
+      },
+    },
+    'bottom-right': {
+      '& .MuiDialog-container': {
+        alignItems: 'flex-end',
+        justifyContent: 'flex-end',
+        pb: 4,
+        pr: 4,
+      },
+    },
+  };
+
+  return positions[position];
+};
 
 export const DynamicSearch: React.FC<DynamicSearchProps> = ({
   fields,
@@ -65,15 +141,18 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
   allowCrossContext = false,
   isAdmin = false,
   columnLayout = 'auto',
+  initialValues,
+  modalPosition = 'center',
 }) => {
   const [formValues, setFormValues] = useState<Record<string, any>>(() => {
-    const initialValues: Record<string, any> = {};
+    const values: Record<string, any> = {};
     fields.forEach((field) => {
       if (field.defaultValue !== undefined) {
-        initialValues[field.name] = field.defaultValue;
+        values[field.name] = field.defaultValue;
       }
     });
-    return initialValues;
+    // Override with initialValues if provided
+    return { ...values, ...(initialValues || {}) };
   });
 
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -90,6 +169,23 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
   const [searchVisibility, setSearchVisibility] = useState<SearchVisibility>('user');
   const [searchExpanded, setSearchExpanded] = useState(true);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Update form values when initialValues changes (e.g., when editing different rows)
+  useEffect(() => {
+    if (initialValues) {
+      const values: Record<string, any> = {};
+      fields.forEach((field) => {
+        if (field.defaultValue !== undefined) {
+          values[field.name] = field.defaultValue;
+        }
+      });
+      setFormValues({ ...values, ...initialValues });
+      // Clear validation errors when loading new initial values
+      setValidationErrors({});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialValues]);
 
   // Filter searches based on context
   const filteredSearches = savedSearches.filter(search => {
@@ -151,9 +247,49 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
       ...prev,
       [name]: value,
     }));
+    // Clear validation error for this field when user changes it
+    if (validationErrors[name]) {
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    // Recursively validate all fields
+    const validateField = (field: any): void => {
+      if (field.type === 'group' && field.fields) {
+        // Validate grouped fields
+        field.fields.forEach(validateField);
+      } else if (field.required) {
+        const value = formValues[field.name];
+
+        // Check if value is empty
+        if (value === undefined || value === null || value === '') {
+          errors[field.name] = `${field.label} is required`;
+        } else if (Array.isArray(value) && value.length === 0) {
+          errors[field.name] = `${field.label} is required`;
+        } else if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
+          errors[field.name] = `${field.label} is required`;
+        }
+      }
+    };
+
+    fields.forEach(validateField);
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSearch = () => {
+    // Validate form before submitting
+    if (!validateForm()) {
+      return;
+    }
+
     const flattenedValues = flattenValues(formValues);
     onSearch(flattenedValues);
   };
@@ -433,6 +569,12 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
             </Alert>
           </Collapse>
 
+          {Object.keys(validationErrors).length > 0 && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              Please fill in all required fields before submitting.
+            </Alert>
+          )}
+
           <Grid container spacing={3}>
             {fields.map((field) => (
               <Grid item xs={12} sm={6} md={getColumnSize()} key={field.name}>
@@ -440,6 +582,7 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
                   field={field}
                   value={formValues[field.name]}
                   onChange={handleFieldChange}
+                  error={validationErrors[field.name]}
                 />
               </Grid>
             ))}
@@ -483,7 +626,7 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
       </Paper>
 
       {/* Save Search Dialog */}
-      <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)} maxWidth="sm" fullWidth sx={getDialogStyles(modalPosition)}>
         <DialogTitle>
           Save Search Parameters
           {searchContext && (
@@ -575,7 +718,7 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
       </Dialog>
 
       {/* Rename Search Dialog */}
-      <Dialog open={renameDialogOpen} onClose={() => setRenameDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={renameDialogOpen} onClose={() => setRenameDialogOpen(false)} maxWidth="sm" fullWidth sx={getDialogStyles(modalPosition)}>
         <DialogTitle>Edit Saved Search</DialogTitle>
         <DialogContent>
           <TextField
@@ -651,7 +794,7 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="xs" fullWidth sx={getDialogStyles(modalPosition)}>
         <DialogTitle>Delete Saved Search?</DialogTitle>
         <DialogContent>
           <Typography variant="body1">
@@ -679,6 +822,7 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
         onClose={() => setPreviewDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        sx={getDialogStyles(modalPosition)}
       >
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>
