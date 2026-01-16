@@ -509,6 +509,226 @@ export default function FormikExample() {
 
 ---
 
+## StandalonePillField
+
+A multi-value input field with chip display, perfect for tags, IDs, or lists of values.
+
+### Features
+
+- ✅ Enter comma-separated values in a textarea
+- ✅ Displays values as removable chips
+- ✅ Number mode with optional range expansion (e.g., "1-5" becomes [1,2,3,4,5])
+- ✅ Collapsible display for large value lists
+- ✅ "Clear All" button
+- ✅ Tooltip support
+- ✅ Custom validation
+- ✅ Controlled component
+
+### Basic Usage
+
+```tsx
+import { useState } from 'react';
+import { StandalonePillField } from '@/components/DynamicSearch';
+
+export default function TagInput() {
+  const [tags, setTags] = useState<string[]>([]);
+
+  return (
+    <StandalonePillField
+      label="Tags"
+      value={tags}
+      onChange={setTags}
+      pillType="text"
+      placeholder="Enter tags separated by commas"
+      helperText="Press Enter to confirm"
+    />
+  );
+}
+```
+
+### Number Mode with Ranges
+
+Perfect for product IDs, SKU numbers, or any numeric lists:
+
+```tsx
+import { useState } from 'react';
+import { StandalonePillField } from '@/components/DynamicSearch';
+
+export default function SKUInput() {
+  const [skus, setSkus] = useState<string[]>([]);
+
+  return (
+    <StandalonePillField
+      label="SKU Numbers"
+      value={skus}
+      onChange={setSkus}
+      pillType="number"
+      allowRanges={true}
+      placeholder="Enter SKUs or ranges (e.g., 100-105, 200)"
+      helperText="Use ranges like 100-105. Press Enter to expand."
+      tooltip="Ranges will be expanded into individual numbers"
+    />
+  );
+}
+```
+
+When user enters: `100-105, 200, 300-302` and presses Enter:
+- Expanded to: `['100', '101', '102', '103', '104', '105', '200', '300', '301', '302']`
+
+### With Validation
+
+```tsx
+import { useState } from 'react';
+import { StandalonePillField } from '@/components/DynamicSearch';
+
+export default function ValidatedPillField() {
+  const [values, setValues] = useState<string[]>([]);
+  const [error, setError] = useState<string>('');
+
+  const handleChange = (newValues: string[]) => {
+    setValues(newValues);
+
+    // Custom validation
+    if (newValues.length < 2) {
+      setError('At least 2 values are required');
+    } else if (newValues.length > 10) {
+      setError('Maximum 10 values allowed');
+    } else {
+      setError('');
+    }
+  };
+
+  return (
+    <StandalonePillField
+      label="Product Tags"
+      value={values}
+      onChange={handleChange}
+      pillType="text"
+      error={error}
+      required
+    />
+  );
+}
+```
+
+### Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `label` | `string` | Required | Field label |
+| `value` | `string[]` | Required | Current values array |
+| `onChange` | `(values: string[]) => void` | Required | Callback when values change |
+| `placeholder` | `string` | `undefined` | Placeholder text |
+| `helperText` | `string` | `undefined` | Helper text below field |
+| `error` | `string` | `undefined` | Error message (shows field in error state) |
+| `required` | `boolean` | `false` | Whether field is required |
+| `disabled` | `boolean` | `false` | Whether field is disabled |
+| `pillType` | `'text' \| 'number'` | `'text'` | Type of values |
+| `allowRanges` | `boolean` | `false` | Allow range syntax (only for `pillType='number'`) |
+| `tooltip` | `string` | `undefined` | Tooltip text with help icon |
+| `compactDisplayLimit` | `number` | `20` | Number of chips to show before collapsing |
+| `showClearButton` | `boolean` | `true` | Show "Clear All" button |
+
+### Getting Values
+
+Values are always available in your state:
+
+```tsx
+const [tags, setTags] = useState<string[]>([]);
+
+const handleSubmit = () => {
+  console.log('Tags:', tags); // Access directly from state
+
+  // Use the values
+  const formData = {
+    tags: tags,
+  };
+
+  fetch('/api/submit', {
+    method: 'POST',
+    body: JSON.stringify(formData),
+  });
+};
+
+return (
+  <>
+    <StandalonePillField
+      label="Tags"
+      value={tags}
+      onChange={setTags}
+    />
+    <button onClick={handleSubmit}>Submit</button>
+  </>
+);
+```
+
+### Complete Example
+
+```tsx
+'use client';
+
+import { useState } from 'react';
+import { Box, Button, Grid } from '@mui/material';
+import { StandalonePillField } from '@/components/DynamicSearch';
+
+export default function ProductForm() {
+  const [tags, setTags] = useState<string[]>([]);
+  const [skus, setSkus] = useState<string[]>([]);
+  const [error, setError] = useState<string>('');
+
+  const handleSubmit = () => {
+    if (tags.length < 1) {
+      setError('At least one tag is required');
+      return;
+    }
+
+    const formData = { tags, skus };
+    console.log('Submitted:', formData);
+  };
+
+  return (
+    <Grid container spacing={3}>
+      <Grid item xs={12} md={6}>
+        <StandalonePillField
+          label="Tags"
+          value={tags}
+          onChange={(vals) => {
+            setTags(vals);
+            setError(vals.length < 1 ? 'Required' : '');
+          }}
+          pillType="text"
+          error={error}
+          required
+        />
+      </Grid>
+
+      <Grid item xs={12} md={6}>
+        <StandalonePillField
+          label="SKU Numbers"
+          value={skus}
+          onChange={setSkus}
+          pillType="number"
+          allowRanges={true}
+          helperText="Use ranges: 100-105, 200"
+        />
+      </Grid>
+
+      <Grid item xs={12}>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={tags.length < 1}
+        >
+          Submit
+        </Button>
+      </Grid>
+    </Grid>
+  );
+}
+```
+
+---
+
 ## When to Use Which Component
 
 ### Use `DynamicSearch` when:
@@ -524,21 +744,30 @@ export default function FormikExample() {
 - Building custom forms
 
 ### Use `SearchableMultiSelect` when:
-- Need multi-value selection
+- Need multi-value selection from a predefined list
 - Want chip-based display of selected values
 - Need "Select All" / "Clear All" functionality
 - Building tag selectors, filter lists, etc.
+
+### Use `StandalonePillField` when:
+- Need users to enter their own values (not from a list)
+- Want multi-value text or number input
+- Need range expansion for numbers (e.g., 1-5 → [1,2,3,4,5])
+- Building tag creators, SKU entry, ID lists, etc.
 
 ---
 
 ## Summary
 
 The standalone components give you:
-- ✅ Same great UX as DynamicSearch dropdowns
+- ✅ **SearchableDropdown** - Single-select with search/filter
+- ✅ **SearchableMultiSelect** - Multi-select with chips and optional action buttons
+- ✅ **StandalonePillField** - Multi-value text/number input with range expansion
+- ✅ Same great UX as DynamicSearch components
 - ✅ Full control over validation and events
 - ✅ Easy integration with any form library
 - ✅ Lightweight - use only what you need
-- ✅ API-driven or static options
+- ✅ API-driven or static options (dropdowns)
 - ✅ TypeScript support
 
-Perfect for developers who want the dropdown look and feel without the full DynamicSearch infrastructure!
+Perfect for developers who want powerful input components without the full DynamicSearch infrastructure!

@@ -679,10 +679,14 @@ const theme = createTheme({
 
 ## Standalone Components
 
-Don't need the full DynamicSearch form? Use the standalone dropdown components directly:
+Don't need the full DynamicSearch form? Use the standalone components directly:
 
 ```tsx
-import { SearchableDropdown, SearchableMultiSelect } from '@/components/DynamicSearch';
+import {
+  SearchableDropdown,
+  SearchableMultiSelect,
+  StandalonePillField
+} from '@/components/DynamicSearch';
 
 // Single-select dropdown
 <SearchableDropdown
@@ -702,13 +706,24 @@ import { SearchableDropdown, SearchableMultiSelect } from '@/components/DynamicS
     { label: 'TypeScript', value: 'typescript' },
   ]}
 />
+
+// Multi-value input with chips
+<StandalonePillField
+  label="SKU Numbers"
+  value={skus}
+  onChange={setSkus}
+  pillType="number"
+  allowRanges={true}
+  helperText="Enter numbers or ranges (e.g., 100-105, 200)"
+/>
 ```
 
 **Features:**
-- Same searchable dropdown experience as DynamicSearch
+- Same great UX as DynamicSearch components
 - Full control over validation and events
 - Works with any form library (React Hook Form, Formik, etc.)
-- API-driven or static options
+- API-driven or static options (dropdowns)
+- Range expansion for numbers (PillField)
 - TypeScript support
 
 See [STANDALONE_COMPONENTS.md](STANDALONE_COMPONENTS.md) for complete documentation and examples.
