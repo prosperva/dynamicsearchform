@@ -30,7 +30,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
-import { FieldConfig, DropdownOption } from './types';
+import { FieldConfig, DropdownOption, FormMode } from './types';
 import { PillField } from './PillField';
 import { ModalSelectField } from './ModalSelectField';
 
@@ -41,6 +41,7 @@ interface FieldRendererProps {
   error?: string;
   allValues?: Record<string, any>; // All form values for field copying
   allFields?: FieldConfig[]; // All field configs to lookup labels
+  formMode?: FormMode; // Form mode: 'search' or 'edit' (default: 'search')
 }
 
 // Helper component to render label with optional tooltip
@@ -68,9 +69,14 @@ const LabelWithTooltip: React.FC<{ label: string; tooltip?: string }> = ({ label
   );
 };
 
-export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onChange, error, allValues = {}, allFields = [] }) => {
+export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onChange, error, allValues = {}, allFields = [], formMode = 'search' }) => {
   const [options, setOptions] = useState<DropdownOption[]>(field.options || []);
   const [loading, setLoading] = useState(false);
+
+  // Determine if field is required based on form mode
+  const isRequired = field.required ||
+    (formMode === 'edit' && field.requiredForEdit) ||
+    (formMode === 'search' && field.requiredForSearch);
 
   // Helper to find a field by name (recursively search through groups/accordions)
   const findFieldByName = (name: string, fields: FieldConfig[]): FieldConfig | null => {
@@ -170,7 +176,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
             onChange={(e) => handleChange(e.target.value)}
             placeholder={field.placeholder}
             helperText={error || field.helperText}
-            required={field.required}
+            required={isRequired}
             variant="outlined"
             error={!!error}
           />
@@ -189,7 +195,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           onChange={(e) => handleChange(e.target.value)}
           placeholder={field.placeholder}
           helperText={error || field.helperText}
-          required={field.required}
+          required={isRequired}
           variant="outlined"
           error={!!error}
         />
@@ -207,7 +213,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
             slotProps={{
               textField: {
                 fullWidth: true,
-                required: field.required,
+                required: isRequired,
                 helperText: error || field.helperText,
                 variant: 'outlined',
                 error: !!error,
@@ -233,7 +239,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
             <TextField
               {...params}
               label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
-              required={field.required}
+              required={isRequired}
               helperText={error || field.helperText}
               variant="outlined"
               error={!!error}
@@ -271,7 +277,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
               <TextField
                 {...params}
                 label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
-                required={field.required}
+                required={isRequired}
                 helperText={error || field.helperText}
                 variant="outlined"
                 error={!!error}
@@ -327,7 +333,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
 
     case 'radio':
       return (
-        <FormControl component="fieldset" required={field.required} error={!!error}>
+        <FormControl component="fieldset" required={isRequired} error={!!error}>
           <FormLabel component="legend">
             <LabelWithTooltip label={field.label} tooltip={field.tooltip} />
           </FormLabel>
@@ -360,7 +366,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           onChange={onChange}
           placeholder={field.placeholder}
           helperText={field.helperText}
-          required={field.required}
+          required={isRequired}
           pillType={field.pillType}
           allowRanges={field.allowRanges}
           tooltip={field.tooltip}
@@ -451,7 +457,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           apiValueField={field.apiValueField}
           placeholder={field.placeholder}
           helperText={field.helperText}
-          required={field.required}
+          required={isRequired}
           tooltip={field.tooltip}
           allowMultiple={field.allowMultiple}
           error={error}

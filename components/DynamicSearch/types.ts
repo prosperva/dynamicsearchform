@@ -5,6 +5,8 @@ export interface DropdownOption {
   value: string | number;
 }
 
+export type FormMode = 'search' | 'edit';
+
 export interface FieldConfig {
   name: string;
   label: string;
@@ -14,7 +16,9 @@ export interface FieldConfig {
   apiUrl?: string;
   apiLabelField?: string; // Field name for label in API response (default: 'label')
   apiValueField?: string; // Field name for value in API response (default: 'value')
-  required?: boolean;
+  required?: boolean; // Always required (both search and edit)
+  requiredForEdit?: boolean; // Only required in edit mode
+  requiredForSearch?: boolean; // Only required in search mode
   placeholder?: string;
   helperText?: string;
   pillType?: 'number' | 'text';
@@ -72,4 +76,6 @@ export interface DynamicSearchProps {
   defaultViewMode?: ViewMode; // Default view mode (default: 'grid')
   availableViewModes?: ViewMode[]; // Available view modes (default: all)
   onViewModeChange?: (viewMode: ViewMode) => void; // Callback when view mode changes
+  customFields?: (values: Record<string, any>, onChange: (name: string, value: any) => void) => React.ReactNode; // Custom fields render function
+  formMode?: FormMode; // Form mode: 'search' or 'edit' (default: 'search')
 }

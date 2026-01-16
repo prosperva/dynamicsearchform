@@ -52,7 +52,7 @@ import {
   ViewModule as GridIcon,
   Description as ReportIcon,
 } from '@mui/icons-material';
-import { DynamicSearchProps, SavedSearch, SearchVisibility, ModalPosition, ViewMode } from './types';
+import { DynamicSearchProps, SavedSearch, SearchVisibility, ModalPosition, ViewMode, FormMode } from './types';
 import { FieldRenderer } from './FieldRenderer';
 
 // Helper function to get dialog positioning styles
@@ -152,6 +152,8 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
   defaultViewMode = 'grid',
   availableViewModes = ['grid', 'report'],
   onViewModeChange,
+  customFields,
+  formMode = 'search',
 }) => {
   const [formValues, setFormValues] = useState<Record<string, any>>(() => {
     const values: Record<string, any> = {};
@@ -267,6 +269,18 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
     }
   };
 
+  // Helper function to determine if field is required based on form mode
+  const isFieldRequired = (field: any): boolean => {
+    // If field has generic 'required', it's always required
+    if (field.required) return true;
+
+    // Check mode-specific required flags
+    if (formMode === 'edit' && field.requiredForEdit) return true;
+    if (formMode === 'search' && field.requiredForSearch) return true;
+
+    return false;
+  };
+
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
@@ -275,7 +289,7 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
       if (field.type === 'group' && field.fields) {
         // Validate grouped fields
         field.fields.forEach(validateField);
-      } else if (field.required) {
+      } else if (isFieldRequired(field)) {
         const value = formValues[field.name];
 
         // Check if value is empty
@@ -602,9 +616,13 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
                   error={validationErrors[field.name]}
                   allValues={formValues}
                   allFields={fields}
+                  formMode={formMode}
                 />
               </Grid>
             ))}
+
+            {/* Custom fields - developer has full control */}
+            {customFields && customFields(formValues, handleFieldChange)}
           </Grid>
 
           <Divider sx={{ my: 3 }} />

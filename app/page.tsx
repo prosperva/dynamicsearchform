@@ -24,12 +24,16 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Grid,
+  TextField,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
   PictureAsPdf as PdfIcon,
   TableChart as ExcelIcon,
   Description as CsvIcon,
+  Edit as EditIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import { DynamicSearch, FieldConfig, SavedSearch, ViewMode, ReportFormat } from '@/components/DynamicSearch';
@@ -50,6 +54,7 @@ export default function Home() {
   const [hasSearched, setHasSearched] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<any>(null);
+  const [dialogMode, setDialogMode] = useState<'view' | 'edit'>('edit'); // Track if dialog is for viewing or editing
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [downloadMenuAnchor, setDownloadMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -63,6 +68,7 @@ export default function Home() {
       placeholder: 'Enter product name...',
       helperText: 'Search by product name',
       tooltip: 'Enter the name or partial name of the product you are looking for',
+      requiredForEdit: true, // Required when editing, optional when searching
     },
     {
       name: 'category',
@@ -70,6 +76,7 @@ export default function Home() {
       type: 'dropdown',
       apiUrl: '/api/categories',
       helperText: 'Select a category (loaded from API)',
+      requiredForEdit: true, // Required when editing, optional when searching
     },
     {
       name: 'inStock',
@@ -87,6 +94,7 @@ export default function Home() {
         { label: 'Refurbished', value: 'refurbished' },
       ],
       helperText: 'Product condition',
+      requiredForEdit: true, // Required when editing, optional when searching
     },
     {
       name: 'shippingFrom',
@@ -103,6 +111,7 @@ export default function Home() {
       type: 'number',
       placeholder: 'Enter price...',
       helperText: 'Product price in USD',
+      requiredForEdit: true, // Required when editing, optional when searching
     },
     {
       name: 'dateAdded',
@@ -260,15 +269,6 @@ export default function Home() {
     },
   ];
 
-  // Define edit fields configuration (with required validation)
-  const editFields: FieldConfig[] = searchFields.map((field) => {
-    // Make key fields required for editing
-    if (['productName', 'category', 'condition', 'price'].includes(field.name)) {
-      return { ...field, required: true };
-    }
-    return field;
-  });
-
   // Add accordion section for advanced options (demonstrating accordion + field copying)
   const accordionField: FieldConfig = {
     name: 'shippingInfo',
@@ -300,7 +300,7 @@ export default function Home() {
     ],
   };
 
-  const editFieldsWithAccordion = [...editFields, accordionField];
+  const editFieldsWithAccordion = [...searchFields, accordionField];
 
   const handleSearch = (params: Record<string, any>, selectedViewMode?: ViewMode) => {
     console.log('Search Parameters:', params);
@@ -339,8 +339,15 @@ export default function Home() {
     setHasSearched(true);
   };
 
-  const handleRowClick = (params: GridRowParams) => {
-    setSelectedRow(params.row);
+  const handleViewRow = (row: any) => {
+    setSelectedRow(row);
+    setDialogMode('view');
+    setEditDialogOpen(true);
+  };
+
+  const handleEditRow = (row: any) => {
+    setSelectedRow(row);
+    setDialogMode('edit');
     setEditDialogOpen(true);
   };
 
@@ -368,6 +375,39 @@ export default function Home() {
     { field: 'inStock', headerName: 'In Stock', width: 100, type: 'boolean' },
     { field: 'price', headerName: 'Price ($)', width: 100, type: 'number' },
     { field: 'country', headerName: 'Country', width: 100 },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 150,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<ViewIcon />}
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent row click event
+              handleViewRow(params.row);
+            }}
+          >
+            View
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<EditIcon />}
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent row click event
+              handleEditRow(params.row);
+            }}
+          >
+            Edit
+          </Button>
+        </Box>
+      ),
+    },
   ];
 
   const handleSaveSearch = (search: SavedSearch) => {
@@ -411,8 +451,6 @@ export default function Home() {
           },
         }}
         pageSizeOptions={[5, 10]}
-        onRowClick={handleRowClick}
-        sx={{ cursor: 'pointer' }}
       />
     </div>
   );
@@ -694,8 +732,11 @@ export default function Home() {
         </Typography>
         <Alert severity="info" sx={{ mt: 2 }}>
           <strong>New Features:</strong> Choose how to display search results - Grid (data table) or Report (detailed document with download options).
-          Report view supports downloading as PDF, Excel, or CSV. Results only appear after clicking Search. Try the accordion fields
-          with field copying in the edit modal, or use the pill fields with range support like &quot;100-150&quot;.
+          Report view supports downloading as PDF, Excel, or CSV. Results only appear after clicking Search.
+        </Alert>
+        <Alert severity="success" sx={{ mt: 1 }}>
+          <strong>Try these features:</strong> Interdependent fields (Brand → Model auto-fill), accordion fields
+          with field copying in the edit modal, pill fields with range support (e.g., &quot;100-150&quot;), and separate View/Edit buttons in the grid.
         </Alert>
       </Box>
 
@@ -717,6 +758,81 @@ export default function Home() {
         enableViewMode={true}
         defaultViewMode="grid"
         onViewModeChange={setViewMode}
+        customFields={(values, onChange) => {
+          // Example: Brand and Model interdependency
+          const modelsByBrand: Record<string, string[]> = {
+            apple: ['iPhone 15', 'iPhone 14', 'MacBook Pro', 'iPad Air'],
+            samsung: ['Galaxy S24', 'Galaxy Note', 'Galaxy Tab'],
+            sony: ['PlayStation 5', 'Xperia', 'Bravia TV'],
+            lg: ['OLED TV', 'Gram Laptop', 'Wing Phone'],
+            dell: ['XPS 13', 'Alienware', 'Inspiron'],
+            hp: ['Spectre', 'Envy', 'Pavilion'],
+          };
+
+          const models = values.brand ? modelsByBrand[values.brand] || [] : [];
+
+          return (
+            <>
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }}>
+                  <Chip label="Custom Interdependent Fields" size="small" color="secondary" />
+                </Divider>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Brand (Custom)"
+                  value={values.brandCustom || ''}
+                  onChange={(e) => {
+                    onChange('brandCustom', e.target.value);
+                    onChange('modelCustom', ''); // Reset model when brand changes
+                  }}
+                  fullWidth
+                  helperText="Selecting a brand will populate available models"
+                >
+                  <MenuItem value="">None</MenuItem>
+                  <MenuItem value="apple">Apple</MenuItem>
+                  <MenuItem value="samsung">Samsung</MenuItem>
+                  <MenuItem value="sony">Sony</MenuItem>
+                  <MenuItem value="lg">LG</MenuItem>
+                  <MenuItem value="dell">Dell</MenuItem>
+                  <MenuItem value="hp">HP</MenuItem>
+                </TextField>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Model (Auto-populated)"
+                  value={values.modelCustom || ''}
+                  onChange={(e) => onChange('modelCustom', e.target.value)}
+                  fullWidth
+                  disabled={!values.brandCustom}
+                  helperText={
+                    !values.brandCustom
+                      ? 'Select a brand first'
+                      : `${models.length} models available`
+                  }
+                >
+                  {models.map((model) => (
+                    <MenuItem key={model} value={model}>
+                      {model}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+
+              {values.brandCustom && values.modelCustom && (
+                <Grid item xs={12}>
+                  <Alert severity="success">
+                    Selected: <strong>{values.brandCustom}</strong> - <strong>{values.modelCustom}</strong>
+                  </Alert>
+                </Grid>
+              )}
+            </>
+          );
+        }}
       />
 
       {/* Search Results */}
@@ -752,14 +868,16 @@ export default function Home() {
         </Paper>
       </Box>
 
-      {/* Edit Modal */}
+      {/* View/Edit Modal */}
       <Dialog open={editDialogOpen} onClose={handleEditCancel} maxWidth="lg" fullWidth>
-        <DialogTitle>Edit Product - {selectedRow?.productName}</DialogTitle>
+        <DialogTitle>
+          {dialogMode === 'view' ? 'View Product Details' : 'Edit Product'} - {selectedRow?.productName}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
-            {selectedRow && (
+            {selectedRow && dialogMode === 'edit' && (
               <DynamicSearch
-                key={selectedRow.id} // Force re-mount when editing different rows
+                key={`edit-${selectedRow.id}`} // Force re-mount when editing different rows
                 fields={editFieldsWithAccordion}
                 onSearch={handleEditSave}
                 searchButtonText="Save Changes"
@@ -767,12 +885,74 @@ export default function Home() {
                 enableSaveSearch={false}
                 initialValues={selectedRow}
                 columnLayout={1}
+                formMode="edit" // Enable edit mode validation
               />
+            )}
+            {selectedRow && dialogMode === 'view' && (
+              <Box>
+                <TableContainer>
+                  <Table>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Product Name:</TableCell>
+                        <TableCell>{selectedRow.productName}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Category:</TableCell>
+                        <TableCell>
+                          <Chip label={selectedRow.category} size="small" color="primary" />
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Condition:</TableCell>
+                        <TableCell>
+                          <Chip label={selectedRow.condition} size="small" variant="outlined" />
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>In Stock:</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={selectedRow.inStock ? 'Yes' : 'No'}
+                            size="small"
+                            color={selectedRow.inStock ? 'success' : 'error'}
+                          />
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Price:</TableCell>
+                        <TableCell>${selectedRow.price}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Country:</TableCell>
+                        <TableCell>{selectedRow.country?.toUpperCase()}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<EditIcon />}
+                    onClick={() => setDialogMode('edit')}
+                  >
+                    Switch to Edit Mode
+                  </Button>
+                </Box>
+              </Box>
             )}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleEditCancel}>Cancel</Button>
+          {dialogMode === 'edit' ? (
+            <Button onClick={handleEditCancel} variant="outlined">
+              Cancel
+            </Button>
+          ) : (
+            <Button onClick={handleEditCancel} variant="contained">
+              Close
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Container>

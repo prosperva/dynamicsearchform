@@ -534,6 +534,7 @@ The component will automatically transform the API response to use 'label' and '
 | `allowCrossContext` | `boolean` | No | Allow viewing/loading searches from other contexts (default: false) |
 | `isAdmin` | `boolean` | No | Whether current user is an admin (affects delete permissions for global searches, default: false) |
 | `columnLayout` | `'auto' \| 1 \| 2 \| 3 \| 4` | No | Column layout: 'auto' (default, adjusts based on field count), 1 (full width), 2 (half), 3 (third), or 4 (quarter) |
+| `formMode` | `'search' \| 'edit'` | No | Form mode for conditional validation (default: 'search') |
 
 ### FieldConfig
 
@@ -547,7 +548,9 @@ The component will automatically transform the API response to use 'label' and '
 | `apiUrl` | `string` | No | API endpoint to fetch options dynamically |
 | `apiLabelField` | `string` | No | Field name for label in API response (default: 'label') |
 | `apiValueField` | `string` | No | Field name for value in API response (default: 'value') |
-| `required` | `boolean` | No | Whether the field is required |
+| `required` | `boolean` | No | Always required (both search and edit modes) |
+| `requiredForEdit` | `boolean` | No | Required only in edit mode |
+| `requiredForSearch` | `boolean` | No | Required only in search mode |
 | `placeholder` | `string` | No | Placeholder text |
 | `helperText` | `string` | No | Helper text displayed below the field |
 | `pillType` | `'number' \| 'text'` | No | Type of pill field (only for type='pill') |
@@ -675,7 +678,48 @@ const theme = createTheme({
 
 ### Validation
 
-Add custom validation by using the `required` field property and implementing validation logic in your `onSearch` callback.
+The component supports flexible validation with three approaches:
+
+**1. Always Required (both search and edit)**
+```tsx
+{
+  name: 'email',
+  label: 'Email',
+  type: 'text',
+  required: true, // Always required
+}
+```
+
+**2. Required Only for Editing**
+```tsx
+{
+  name: 'productName',
+  label: 'Product Name',
+  type: 'text',
+  requiredForEdit: true, // Optional when searching, required when editing
+}
+```
+
+**3. Required Only for Searching**
+```tsx
+{
+  name: 'searchQuery',
+  label: 'Query',
+  type: 'text',
+  requiredForSearch: true, // Required when searching, optional when editing
+}
+```
+
+**Form Mode:**
+```tsx
+// Search form - requiredForSearch fields validated
+<DynamicSearch fields={fields} onSearch={handleSearch} formMode="search" />
+
+// Edit form - requiredForEdit fields validated
+<DynamicSearch fields={fields} onSearch={handleSave} formMode="edit" />
+```
+
+See [CONDITIONAL_VALIDATION.md](CONDITIONAL_VALIDATION.md) for comprehensive examples and migration guides.
 
 ## TypeScript Types
 
