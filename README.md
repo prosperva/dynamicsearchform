@@ -4,6 +4,7 @@ A flexible, reusable search component built with Next.js and Material UI that su
 
 ## Features
 
+- **Standalone Components**: Use `SearchableDropdown` and `SearchableMultiSelect` independently without the full DynamicSearch form
 - **Unlimited Fields**: Add as many search fields as you need
 - **Multiple Field Types**:
   - Text input
@@ -675,6 +676,44 @@ const theme = createTheme({
   },
 });
 ```
+
+## Standalone Components
+
+Don't need the full DynamicSearch form? Use the standalone dropdown components directly:
+
+```tsx
+import { SearchableDropdown, SearchableMultiSelect } from '@/components/DynamicSearch';
+
+// Single-select dropdown
+<SearchableDropdown
+  label="Category"
+  value={category}
+  onChange={setCategory}
+  apiUrl="/api/categories"
+/>
+
+// Multi-select dropdown
+<SearchableMultiSelect
+  label="Tags"
+  value={tags}
+  onChange={setTags}
+  options={[
+    { label: 'React', value: 'react' },
+    { label: 'TypeScript', value: 'typescript' },
+  ]}
+/>
+```
+
+**Features:**
+- Same searchable dropdown experience as DynamicSearch
+- Full control over validation and events
+- Works with any form library (React Hook Form, Formik, etc.)
+- API-driven or static options
+- TypeScript support
+
+See [STANDALONE_COMPONENTS.md](STANDALONE_COMPONENTS.md) for complete documentation and examples.
+
+---
 
 ### Validation
 

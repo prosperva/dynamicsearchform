@@ -430,6 +430,44 @@ interface FieldConfig {
 
 ---
 
+## 🧩 Standalone Components
+
+Don't need the full search form? Use individual components independently:
+
+### SearchableDropdown
+```typescript
+import { SearchableDropdown } from '@/components/DynamicSearch';
+
+<SearchableDropdown
+  label="Category"
+  value={category}
+  onChange={setCategory}
+  apiUrl="/api/categories"
+/>
+```
+
+### SearchableMultiSelect
+```typescript
+import { SearchableMultiSelect } from '@/components/DynamicSearch';
+
+<SearchableMultiSelect
+  label="Tags"
+  value={tags}
+  onChange={setTags}
+  options={tagOptions}
+/>
+```
+
+**Benefits:**
+- Same searchable UX as DynamicSearch dropdowns
+- Full control over validation and events
+- Works with any form library (React Hook Form, Formik)
+- Lightweight - use only what you need
+
+📖 See [STANDALONE_COMPONENTS.md](STANDALONE_COMPONENTS.md) for complete documentation
+
+---
+
 ## 📚 Documentation Files
 
 - **[INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)** - Step-by-step integration guide
@@ -439,6 +477,7 @@ interface FieldConfig {
 - **[VIEW_MODE_UPDATES.md](VIEW_MODE_UPDATES.md)** - Recent updates to view modes
 - **[CUSTOM_FIELDS_GUIDE.md](CUSTOM_FIELDS_GUIDE.md)** - Custom fields with examples
 - **[CONDITIONAL_VALIDATION.md](CONDITIONAL_VALIDATION.md)** - Conditional field validation
+- **[STANDALONE_COMPONENTS.md](STANDALONE_COMPONENTS.md)** - Using components independently
 
 ---
 
