@@ -1,4 +1,4 @@
-export type FieldType = 'text' | 'number' | 'dropdown' | 'checkbox' | 'radio' | 'date' | 'multiselect' | 'pill' | 'group' | 'modal-select';
+export type FieldType = 'text' | 'number' | 'dropdown' | 'checkbox' | 'radio' | 'date' | 'multiselect' | 'pill' | 'group' | 'modal-select' | 'accordion';
 
 export interface DropdownOption {
   label: string;
@@ -20,8 +20,11 @@ export interface FieldConfig {
   pillType?: 'number' | 'text';
   allowRanges?: boolean;
   tooltip?: string;
-  fields?: FieldConfig[]; // For grouped fields (only when type='group')
+  fields?: FieldConfig[]; // For grouped fields (only when type='group' or 'accordion')
   allowMultiple?: boolean; // For modal-select: allow selecting multiple values (default: false)
+  defaultExpanded?: boolean; // For accordion: whether section starts expanded (default: false)
+  copyFromField?: string; // Field name to copy value from (creates a "Copy from X" button)
+  copyButtonText?: string; // Custom text for copy button (default: "Copy from {fieldLabel}")
 }
 
 export type SearchVisibility = 'user' | 'global';
@@ -29,6 +32,10 @@ export type SearchVisibility = 'user' | 'global';
 export type ColumnLayout = 'auto' | 1 | 2 | 3 | 4;
 
 export type ModalPosition = 'center' | 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+export type ViewMode = 'grid' | 'report';
+export type ReportFormat = 'pdf' | 'excel' | 'csv';
+
 
 export interface SavedSearch {
   id: string;
@@ -39,11 +46,12 @@ export interface SavedSearch {
   createdBy?: string;
   context?: string;
   description?: string;
+  viewMode?: ViewMode; // Preferred view mode for this saved search
 }
 
 export interface DynamicSearchProps {
   fields: FieldConfig[];
-  onSearch: (params: Record<string, any>) => void;
+  onSearch: (params: Record<string, any>, viewMode?: ViewMode) => void;
   onSave?: (search: SavedSearch) => void;
   onLoad?: (searchId: string) => void;
   onDelete?: (searchId: string) => void;
@@ -60,4 +68,8 @@ export interface DynamicSearchProps {
   columnLayout?: ColumnLayout;
   initialValues?: Record<string, any>;
   modalPosition?: ModalPosition; // Position of all dialogs (default: 'center')
+  enableViewMode?: boolean; // Enable view mode selector (default: false)
+  defaultViewMode?: ViewMode; // Default view mode (default: 'grid')
+  availableViewModes?: ViewMode[]; // Available view modes (default: all)
+  onViewModeChange?: (viewMode: ViewMode) => void; // Callback when view mode changes
 }

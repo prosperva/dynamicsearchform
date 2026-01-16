@@ -33,6 +33,9 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  ToggleButtonGroup,
+  ToggleButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -46,8 +49,10 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   MoreVert as MoreVertIcon,
+  ViewModule as GridIcon,
+  Description as ReportIcon,
 } from '@mui/icons-material';
-import { DynamicSearchProps, SavedSearch, SearchVisibility, ModalPosition } from './types';
+import { DynamicSearchProps, SavedSearch, SearchVisibility, ModalPosition, ViewMode } from './types';
 import { FieldRenderer } from './FieldRenderer';
 
 // Helper function to get dialog positioning styles
@@ -143,6 +148,10 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
   columnLayout = 'auto',
   initialValues,
   modalPosition = 'center',
+  enableViewMode = false,
+  defaultViewMode = 'grid',
+  availableViewModes = ['grid', 'report'],
+  onViewModeChange,
 }) => {
   const [formValues, setFormValues] = useState<Record<string, any>>(() => {
     const values: Record<string, any> = {};
@@ -170,6 +179,7 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
   const [searchExpanded, setSearchExpanded] = useState(true);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [selectedViewMode, setSelectedViewMode] = useState<ViewMode>(defaultViewMode);
 
   // Update form values when initialValues changes (e.g., when editing different rows)
   useEffect(() => {
@@ -291,7 +301,14 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
     }
 
     const flattenedValues = flattenValues(formValues);
-    onSearch(flattenedValues);
+    onSearch(flattenedValues, selectedViewMode);
+  };
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setSelectedViewMode(mode);
+    if (onViewModeChange) {
+      onViewModeChange(mode);
+    }
   };
 
   const handleReset = () => {
@@ -583,12 +600,54 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
                   value={formValues[field.name]}
                   onChange={handleFieldChange}
                   error={validationErrors[field.name]}
+                  allValues={formValues}
+                  allFields={fields}
                 />
               </Grid>
             ))}
           </Grid>
 
           <Divider sx={{ my: 3 }} />
+
+          {enableViewMode && (
+            <Box mb={2}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
+                Display Results As:
+              </Typography>
+              <ToggleButtonGroup
+                value={selectedViewMode}
+                exclusive
+                onChange={(_, newMode) => {
+                  if (newMode !== null) {
+                    handleViewModeChange(newMode);
+                  }
+                }}
+                aria-label="view mode"
+                size="small"
+              >
+                {availableViewModes.includes('grid') && (
+                  <ToggleButton value="grid" aria-label="grid view">
+                    <Tooltip title="Grid View" arrow>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <GridIcon fontSize="small" />
+                        <span>Grid</span>
+                      </Box>
+                    </Tooltip>
+                  </ToggleButton>
+                )}
+                {availableViewModes.includes('report') && (
+                  <ToggleButton value="report" aria-label="report view">
+                    <Tooltip title="Report View (Downloadable)" arrow>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <ReportIcon fontSize="small" />
+                        <span>Report</span>
+                      </Box>
+                    </Tooltip>
+                  </ToggleButton>
+                )}
+              </ToggleButtonGroup>
+            </Box>
+          )}
 
           <Box display="flex" gap={2} flexWrap="wrap">
             <Button

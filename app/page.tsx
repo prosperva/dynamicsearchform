@@ -12,27 +12,27 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  SxProps,
-  Theme,
+  Divider,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
+import {
+  Download as DownloadIcon,
+  PictureAsPdf as PdfIcon,
+  TableChart as ExcelIcon,
+  Description as CsvIcon,
+} from '@mui/icons-material';
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
-import { DynamicSearch, FieldConfig, SavedSearch } from '@/components/DynamicSearch';
-
-// Helper function to get dialog positioning styles
-const getDialogStyles = (position: 'center' | 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'): SxProps<Theme> => {
-  const positions = {
-    center: { '& .MuiDialog-container': { alignItems: 'center', justifyContent: 'center' } },
-    top: { '& .MuiDialog-container': { alignItems: 'flex-start', justifyContent: 'center', pt: 4 } },
-    bottom: { '& .MuiDialog-container': { alignItems: 'flex-end', justifyContent: 'center', pb: 4 } },
-    left: { '& .MuiDialog-container': { alignItems: 'center', justifyContent: 'flex-start', pl: 4 } },
-    right: { '& .MuiDialog-container': { alignItems: 'center', justifyContent: 'flex-end', pr: 4 } },
-    'top-left': { '& .MuiDialog-container': { alignItems: 'flex-start', justifyContent: 'flex-start', pt: 4, pl: 4 } },
-    'top-right': { '& .MuiDialog-container': { alignItems: 'flex-start', justifyContent: 'flex-end', pt: 4, pr: 4 } },
-    'bottom-left': { '& .MuiDialog-container': { alignItems: 'flex-end', justifyContent: 'flex-start', pb: 4, pl: 4 } },
-    'bottom-right': { '& .MuiDialog-container': { alignItems: 'flex-end', justifyContent: 'flex-end', pb: 4, pr: 4 } },
-  };
-  return positions[position];
-};
+import { DynamicSearch, FieldConfig, SavedSearch, ViewMode, ReportFormat } from '@/components/DynamicSearch';
 
 // Mock data for demonstration
 const mockProducts = [
@@ -46,9 +46,12 @@ const mockProducts = [
 export default function Home() {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [gridData, setGridData] = useState(mockProducts);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<any>(null);
-  const [modalPosition, setModalPosition] = useState<'center' | 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'>('center');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [downloadMenuAnchor, setDownloadMenuAnchor] = useState<null | HTMLElement>(null);
 
   // Define the search fields configuration (all optional for searching)
   // Note: Pill fields are placed at the end to prevent layout shifts when expanded
@@ -266,10 +269,74 @@ export default function Home() {
     return field;
   });
 
-  const handleSearch = (params: Record<string, any>) => {
+  // Add accordion section for advanced options (demonstrating accordion + field copying)
+  const accordionField: FieldConfig = {
+    name: 'shippingInfo',
+    label: 'Shipping Information',
+    type: 'accordion',
+    defaultExpanded: false,
+    helperText: 'Additional shipping details',
+    fields: [
+      {
+        name: 'warehouse',
+        label: 'Primary Warehouse Location',
+        type: 'text',
+        placeholder: 'Enter warehouse location...',
+      },
+      {
+        name: 'alternateWarehouse',
+        label: 'Alternate Warehouse',
+        type: 'text',
+        placeholder: 'Enter alternate location...',
+        copyFromField: 'warehouse',
+        copyButtonText: 'Copy from Primary Warehouse',
+      },
+      {
+        name: 'estimatedShipping',
+        label: 'Est. Shipping Days',
+        type: 'number',
+        defaultValue: 3,
+      },
+    ],
+  };
+
+  const editFieldsWithAccordion = [...editFields, accordionField];
+
+  const handleSearch = (params: Record<string, any>, selectedViewMode?: ViewMode) => {
     console.log('Search Parameters:', params);
-    // In a real app, you would filter gridData based on search params
-    // For demo purposes, just log the search parameters
+    console.log('Selected View Mode:', selectedViewMode);
+
+    // Filter gridData based on search params
+    let filtered = [...gridData];
+
+    if (params.productName) {
+      filtered = filtered.filter(item =>
+        item.productName.toLowerCase().includes(params.productName.toLowerCase())
+      );
+    }
+
+    if (params.category) {
+      filtered = filtered.filter(item => item.category === params.category);
+    }
+
+    if (params.condition) {
+      filtered = filtered.filter(item => item.condition === params.condition);
+    }
+
+    if (params.inStock) {
+      filtered = filtered.filter(item => item.inStock === true);
+    }
+
+    if (params.price) {
+      filtered = filtered.filter(item => item.price <= Number(params.price));
+    }
+
+    if (params.country) {
+      filtered = filtered.filter(item => item.country === params.country);
+    }
+
+    setSearchResults(filtered);
+    setHasSearched(true);
   };
 
   const handleRowClick = (params: GridRowParams) => {
@@ -332,6 +399,288 @@ export default function Home() {
     console.log('Changed Search ID:', searchId, 'visibility to:', visibility);
   };
 
+  // Render functions for different view modes
+  const renderGridView = () => (
+    <div style={{ height: 400, width: '100%' }}>
+      <DataGrid
+        rows={searchResults}
+        columns={columns}
+        initialState={{
+          pagination: {
+            paginationModel: { page: 0, pageSize: 5 },
+          },
+        }}
+        pageSizeOptions={[5, 10]}
+        onRowClick={handleRowClick}
+        sx={{ cursor: 'pointer' }}
+      />
+    </div>
+  );
+
+  const handleDownloadReport = async (format: ReportFormat) => {
+    setDownloadMenuAnchor(null);
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    const fileName = `product-report-${timestamp}`;
+
+    try {
+      switch (format) {
+        case 'pdf': {
+          // Dynamic import to reduce bundle size
+          const { jsPDF } = await import('jspdf');
+          const autoTable = (await import('jspdf-autotable')).default;
+
+          const doc = new jsPDF();
+
+          // Add title
+          doc.setFontSize(18);
+          doc.text('Product Search Report', 14, 20);
+
+          // Add date
+          doc.setFontSize(10);
+          doc.setTextColor(100);
+          doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+          doc.text(`Total Results: ${searchResults.length}`, 14, 34);
+
+          // Reset text color
+          doc.setTextColor(0);
+
+          // Generate table
+          autoTable(doc, {
+            startY: 42,
+            head: [['Product Name', 'Category', 'Condition', 'In Stock', 'Price', 'Country']],
+            body: searchResults.map(product => [
+              product.productName,
+              product.category,
+              product.condition,
+              product.inStock ? 'Yes' : 'No',
+              `$${product.price}`,
+              product.country.toUpperCase(),
+            ]),
+            styles: {
+              fontSize: 10,
+              cellPadding: 3,
+            },
+            headStyles: {
+              fillColor: [63, 81, 181], // Primary color
+              textColor: 255,
+              fontStyle: 'bold',
+            },
+            alternateRowStyles: {
+              fillColor: [245, 245, 245],
+            },
+            margin: { top: 42 },
+          });
+
+          doc.save(`${fileName}.pdf`);
+          break;
+        }
+
+        case 'excel': {
+          // Dynamic import to reduce bundle size
+          const XLSX = await import('xlsx');
+
+          // Prepare data with headers
+          const worksheet = XLSX.utils.json_to_sheet(
+            searchResults.map(product => ({
+              'Product Name': product.productName,
+              'Category': product.category,
+              'Condition': product.condition,
+              'In Stock': product.inStock ? 'Yes' : 'No',
+              'Price': product.price,
+              'Country': product.country.toUpperCase(),
+            }))
+          );
+
+          // Set column widths
+          const columnWidths = [
+            { wch: 25 }, // Product Name
+            { wch: 15 }, // Category
+            { wch: 12 }, // Condition
+            { wch: 10 }, // In Stock
+            { wch: 10 }, // Price
+            { wch: 10 }, // Country
+          ];
+          worksheet['!cols'] = columnWidths;
+
+          // Create workbook and add worksheet
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
+
+          // Add metadata
+          workbook.Props = {
+            Title: 'Product Search Report',
+            Subject: 'Search Results',
+            Author: 'Dynamic Search Component',
+            CreatedDate: new Date(),
+          };
+
+          // Save file
+          XLSX.writeFile(workbook, `${fileName}.xlsx`);
+          break;
+        }
+
+        case 'csv': {
+          // Generate CSV
+          const headers = ['Product Name', 'Category', 'Condition', 'In Stock', 'Price', 'Country'];
+          const csvRows = [
+            headers.join(','),
+            ...searchResults.map(product =>
+              [
+                `"${product.productName}"`,
+                product.category,
+                product.condition,
+                product.inStock ? 'Yes' : 'No',
+                product.price,
+                product.country.toUpperCase(),
+              ].join(',')
+            ),
+          ];
+          const csvContent = csvRows.join('\n');
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement('a');
+          const url = URL.createObjectURL(blob);
+          link.setAttribute('href', url);
+          link.setAttribute('download', `${fileName}.csv`);
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          break;
+        }
+      }
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      alert(`Failed to download ${format.toUpperCase()} report. Please try again.`);
+    }
+  };
+
+  const renderReportView = () => (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button
+          variant="contained"
+          startIcon={<DownloadIcon />}
+          onClick={(e) => setDownloadMenuAnchor(e.currentTarget)}
+        >
+          Download Report
+        </Button>
+        <Menu
+          anchorEl={downloadMenuAnchor}
+          open={Boolean(downloadMenuAnchor)}
+          onClose={() => setDownloadMenuAnchor(null)}
+        >
+          <MenuItem onClick={() => handleDownloadReport('pdf')}>
+            <ListItemIcon>
+              <PdfIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Download as PDF</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={() => handleDownloadReport('excel')}>
+            <ListItemIcon>
+              <ExcelIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Download as Excel</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={() => handleDownloadReport('csv')}>
+            <ListItemIcon>
+              <CsvIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Download as CSV</ListItemText>
+          </MenuItem>
+        </Menu>
+      </Box>
+      <TableContainer>
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: 'primary.main' }}>
+              <TableCell colSpan={2}>
+                <Typography variant="h6" sx={{ color: 'white' }}>
+                  Product Search Report
+                </Typography>
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {searchResults.map((product, index) => (
+              <React.Fragment key={product.id}>
+                {index > 0 && (
+                  <TableRow>
+                    <TableCell colSpan={2}>
+                      <Divider />
+                    </TableCell>
+                  </TableRow>
+                )}
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Product Name:</TableCell>
+                  <TableCell>{product.productName}</TableCell>
+                </TableRow>
+                <TableRow sx={{ bgcolor: 'action.hover' }}>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Category:</TableCell>
+                  <TableCell>
+                    <Chip label={product.category} size="small" color="primary" />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Condition:</TableCell>
+                  <TableCell>
+                    <Chip label={product.condition} size="small" variant="outlined" />
+                  </TableCell>
+                </TableRow>
+                <TableRow sx={{ bgcolor: 'action.hover' }}>
+                  <TableCell sx={{ fontWeight: 'bold' }}>In Stock:</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={product.inStock ? 'Yes' : 'No'}
+                      size="small"
+                      color={product.inStock ? 'success' : 'error'}
+                    />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Price:</TableCell>
+                  <TableCell>${product.price}</TableCell>
+                </TableRow>
+                <TableRow sx={{ bgcolor: 'action.hover' }}>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Country:</TableCell>
+                  <TableCell>{product.country.toUpperCase()}</TableCell>
+                </TableRow>
+              </React.Fragment>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+
+
+  const renderResults = () => {
+    if (!hasSearched) {
+      return (
+        <Alert severity="info">
+          Fill out the search form above and click "Search" to see results.
+        </Alert>
+      );
+    }
+
+    if (searchResults.length === 0) {
+      return (
+        <Alert severity="warning">
+          No products found matching your search criteria. Try adjusting your filters.
+        </Alert>
+      );
+    }
+
+    switch (viewMode) {
+      case 'grid':
+        return renderGridView();
+      case 'report':
+        return renderReportView();
+      default:
+        return renderGridView();
+    }
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Box mb={4}>
@@ -344,30 +693,10 @@ export default function Home() {
           with preview and user/global visibility options.
         </Typography>
         <Alert severity="info" sx={{ mt: 2 }}>
-          <strong>New Features:</strong> Try the textarea-based pill fields (Specific Prices, Keywords, Product IDs)
-          with comma-separated values and range support like &quot;100-150&quot;. Saved searches appear in a searchable dropdown -
-          select to preview, use edit/delete icons for your searches. The layout uses auto-mode
-          (adjusts columns based on field count), or override with <code>columnLayout</code> prop!
-          You can now also configure modal positioning - try different positions below and open any dialog to see it in action!
+          <strong>New Features:</strong> Choose how to display search results - Grid (data table) or Report (detailed document with download options).
+          Report view supports downloading as PDF, Excel, or CSV. Results only appear after clicking Search. Try the accordion fields
+          with field copying in the edit modal, or use the pill fields with range support like &quot;100-150&quot;.
         </Alert>
-
-        <Box sx={{ mt: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="subtitle2" gutterBottom fontWeight="bold">
-            Modal Position Control (for dialogs)
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-            {(['center', 'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((pos) => (
-              <Button
-                key={pos}
-                size="small"
-                variant={modalPosition === pos ? 'contained' : 'outlined'}
-                onClick={() => setModalPosition(pos)}
-              >
-                {pos}
-              </Button>
-            ))}
-          </Box>
-        </Box>
       </Box>
 
       <DynamicSearch
@@ -384,51 +713,60 @@ export default function Home() {
         searchContext="products"
         allowCrossContext={false}
         isAdmin={false}
-        columnLayout={4}
-        modalPosition={modalPosition}
+        columnLayout={2}
+        enableViewMode={true}
+        defaultViewMode="grid"
+        onViewModeChange={setViewMode}
       />
 
-      {/* Data Grid */}
+      {/* Search Results */}
       <Box mt={4}>
         <Paper elevation={2} sx={{ p: 3 }}>
-          <Typography variant="h5" gutterBottom>
-            Products Grid
-          </Typography>
-          <Alert severity="info" sx={{ mb: 3 }}>
-            Click on any row to edit the product details. The DynamicSearch component is used for both searching and editing!
-          </Alert>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h5">
+              Search Results
+              {hasSearched && (
+                <Chip
+                  label={`${searchResults.length} ${searchResults.length === 1 ? 'result' : 'results'}`}
+                  size="small"
+                  color="primary"
+                  sx={{ ml: 2 }}
+                />
+              )}
+            </Typography>
+            {hasSearched && searchResults.length > 0 && (
+              <Chip
+                label={`View: ${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`}
+                color="secondary"
+                variant="outlined"
+              />
+            )}
+          </Box>
+          {hasSearched && searchResults.length > 0 && (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Click on any item to edit the product details. The DynamicSearch component is used for both searching and editing!
+            </Alert>
+          )}
 
-          <div style={{ height: 400, width: '100%' }}>
-            <DataGrid
-              rows={gridData}
-              columns={columns}
-              initialState={{
-                pagination: {
-                  paginationModel: { page: 0, pageSize: 5 },
-                },
-              }}
-              pageSizeOptions={[5, 10]}
-              onRowClick={handleRowClick}
-              sx={{ cursor: 'pointer' }}
-            />
-          </div>
+          {renderResults()}
         </Paper>
       </Box>
 
       {/* Edit Modal */}
-      <Dialog open={editDialogOpen} onClose={handleEditCancel} maxWidth="lg" fullWidth sx={getDialogStyles(modalPosition)}>
+      <Dialog open={editDialogOpen} onClose={handleEditCancel} maxWidth="lg" fullWidth>
         <DialogTitle>Edit Product - {selectedRow?.productName}</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             {selectedRow && (
               <DynamicSearch
                 key={selectedRow.id} // Force re-mount when editing different rows
-                fields={editFields}
+                fields={editFieldsWithAccordion}
                 onSearch={handleEditSave}
                 searchButtonText="Save Changes"
                 resetButtonText="Cancel"
                 enableSaveSearch={false}
                 initialValues={selectedRow}
+                columnLayout={1}
               />
             )}
           </Box>

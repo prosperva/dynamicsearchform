@@ -17,8 +17,15 @@ import {
   Stack,
   Autocomplete,
   Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
-import { HelpOutline as HelpIcon } from '@mui/icons-material';
+import {
+  HelpOutline as HelpIcon,
+  ExpandMore as ExpandMoreIcon,
+  ContentCopy as ContentCopyIcon,
+} from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -32,6 +39,8 @@ interface FieldRendererProps {
   value: any;
   onChange: (name: string, value: any) => void;
   error?: string;
+  allValues?: Record<string, any>; // All form values for field copying
+  allFields?: FieldConfig[]; // All field configs to lookup labels
 }
 
 // Helper component to render label with optional tooltip
@@ -59,9 +68,28 @@ const LabelWithTooltip: React.FC<{ label: string; tooltip?: string }> = ({ label
   );
 };
 
-export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onChange, error }) => {
+export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onChange, error, allValues = {}, allFields = [] }) => {
   const [options, setOptions] = useState<DropdownOption[]>(field.options || []);
   const [loading, setLoading] = useState(false);
+
+  // Helper to find a field by name (recursively search through groups/accordions)
+  const findFieldByName = (name: string, fields: FieldConfig[]): FieldConfig | null => {
+    for (const f of fields) {
+      if (f.name === name) return f;
+      if (f.fields) {
+        const found = findFieldByName(name, f.fields);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  // Handle copying value from another field
+  const handleCopyFromField = () => {
+    if (field.copyFromField && allValues[field.copyFromField] !== undefined) {
+      onChange(field.name, allValues[field.copyFromField]);
+    }
+  };
 
   useEffect(() => {
     if (field.apiUrl && !field.options) {
@@ -99,6 +127,28 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
     onChange(field.name, newValue);
   };
 
+  // Render copy button if field has copyFromField configured
+  const renderCopyButton = () => {
+    if (!field.copyFromField) return null;
+
+    const sourceField = findFieldByName(field.copyFromField, allFields);
+    const sourceValue = allValues[field.copyFromField];
+    const buttonText = field.copyButtonText || `Copy from ${sourceField?.label || field.copyFromField}`;
+
+    return (
+      <Button
+        size="small"
+        startIcon={<ContentCopyIcon />}
+        onClick={handleCopyFromField}
+        disabled={!sourceValue}
+        variant="outlined"
+        sx={{ mt: 1 }}
+      >
+        {buttonText}
+      </Button>
+    );
+  };
+
   if (loading) {
     return (
       <Box display="flex" alignItems="center" gap={1}>
@@ -111,18 +161,21 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
   switch (field.type) {
     case 'text':
       return (
-        <TextField
-          fullWidth
-          label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
-          name={field.name}
-          value={value || ''}
-          onChange={(e) => handleChange(e.target.value)}
-          placeholder={field.placeholder}
-          helperText={error || field.helperText}
-          required={field.required}
-          variant="outlined"
-          error={!!error}
-        />
+        <Box>
+          <TextField
+            fullWidth
+            label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
+            name={field.name}
+            value={value || ''}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={field.placeholder}
+            helperText={error || field.helperText}
+            required={field.required}
+            variant="outlined"
+            error={!!error}
+          />
+          {renderCopyButton()}
+        </Box>
       );
 
     case 'number':
@@ -191,12 +244,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
       );
 
     case 'multiselect':
-      const allValues = options.map(opt => opt.value);
+      const allOptionValues = options.map(opt => opt.value);
       const allSelected = value?.length === options.length;
       const selectedOptions = options.filter((opt) => (value || []).includes(opt.value));
 
       const handleSelectAll = () => {
-        handleChange(allValues);
+        handleChange(allOptionValues);
       };
 
       const handleClearAll = () => {
@@ -336,10 +389,53 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
                   const newValue = { ...(value || {}), [name]: val };
                   onChange(field.name, newValue);
                 }}
+                allValues={{ ...allValues, ...(value || {}) }}
+                allFields={allFields}
               />
             ))}
           </Stack>
         </Box>
+      );
+
+    case 'accordion':
+      return (
+        <Accordion defaultExpanded={field.defaultExpanded ?? false}>
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            sx={{
+              bgcolor: 'action.hover',
+              '&:hover': { bgcolor: 'action.selected' },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+              <FormLabel component="legend" sx={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
+                <LabelWithTooltip label={field.label} tooltip={field.tooltip} />
+              </FormLabel>
+              {field.helperText && (
+                <FormHelperText sx={{ ml: 'auto', fontSize: '0.75rem' }}>
+                  {field.helperText}
+                </FormHelperText>
+              )}
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails sx={{ pt: 2 }}>
+            <Stack spacing={2}>
+              {field.fields?.map((subField) => (
+                <FieldRenderer
+                  key={subField.name}
+                  field={subField}
+                  value={value?.[subField.name]}
+                  onChange={(name, val) => {
+                    const newValue = { ...(value || {}), [name]: val };
+                    onChange(field.name, newValue);
+                  }}
+                  allValues={{ ...allValues, ...(value || {}) }}
+                  allFields={allFields}
+                />
+              ))}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
       );
 
     case 'modal-select':
