@@ -33,9 +33,10 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  ToggleButtonGroup,
-  ToggleButton,
   Tooltip,
+  Select,
+  MenuItem as MuiMenuItem,
+  InputLabel,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -629,41 +630,33 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
 
           {enableViewMode && (
             <Box mb={2}>
-              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, mb: 1 }}>
-                Display Results As:
-              </Typography>
-              <ToggleButtonGroup
-                value={selectedViewMode}
-                exclusive
-                onChange={(_, newMode) => {
-                  if (newMode !== null) {
-                    handleViewModeChange(newMode);
-                  }
-                }}
-                aria-label="view mode"
-                size="small"
-              >
-                {availableViewModes.includes('grid') && (
-                  <ToggleButton value="grid" aria-label="grid view">
-                    <Tooltip title="Grid View" arrow>
+              <FormControl fullWidth size="small" sx={{ maxWidth: 300 }}>
+                <InputLabel id="view-mode-label">Search Results</InputLabel>
+                <Select
+                  labelId="view-mode-label"
+                  id="view-mode-select"
+                  value={selectedViewMode}
+                  label="Search Results"
+                  onChange={(e) => handleViewModeChange(e.target.value as ViewMode)}
+                >
+                  {availableViewModes.includes('grid') && (
+                    <MuiMenuItem value="grid">
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <GridIcon fontSize="small" />
                         <span>Grid</span>
                       </Box>
-                    </Tooltip>
-                  </ToggleButton>
-                )}
-                {availableViewModes.includes('report') && (
-                  <ToggleButton value="report" aria-label="report view">
-                    <Tooltip title="Report View (Downloadable)" arrow>
+                    </MuiMenuItem>
+                  )}
+                  {availableViewModes.includes('report') && (
+                    <MuiMenuItem value="report">
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <ReportIcon fontSize="small" />
                         <span>Report</span>
                       </Box>
-                    </Tooltip>
-                  </ToggleButton>
-                )}
-              </ToggleButtonGroup>
+                    </MuiMenuItem>
+                  )}
+                </Select>
+              </FormControl>
             </Box>
           )}
 

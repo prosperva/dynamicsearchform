@@ -595,7 +595,10 @@ export default function Home() {
 
   const renderReportView = () => (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          Product Search Report
+        </Typography>
         <Button
           variant="contained"
           startIcon={<DownloadIcon />}
@@ -628,62 +631,51 @@ export default function Home() {
           </MenuItem>
         </Menu>
       </Box>
-      <TableContainer>
-        <Table>
+      <TableContainer component={Paper} variant="outlined">
+        <Table sx={{ minWidth: 650 }} aria-label="product report table">
           <TableHead>
             <TableRow sx={{ bgcolor: 'primary.main' }}>
-              <TableCell colSpan={2}>
-                <Typography variant="h6" sx={{ color: 'white' }}>
-                  Product Search Report
-                </Typography>
-              </TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Product Name</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Category</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Condition</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>In Stock</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="right">Price</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Country</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {searchResults.map((product, index) => (
-              <React.Fragment key={product.id}>
-                {index > 0 && (
-                  <TableRow>
-                    <TableCell colSpan={2}>
-                      <Divider />
-                    </TableCell>
-                  </TableRow>
-                )}
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Product Name:</TableCell>
-                  <TableCell>{product.productName}</TableCell>
-                </TableRow>
-                <TableRow sx={{ bgcolor: 'action.hover' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Category:</TableCell>
-                  <TableCell>
-                    <Chip label={product.category} size="small" color="primary" />
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Condition:</TableCell>
-                  <TableCell>
-                    <Chip label={product.condition} size="small" variant="outlined" />
-                  </TableCell>
-                </TableRow>
-                <TableRow sx={{ bgcolor: 'action.hover' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>In Stock:</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={product.inStock ? 'Yes' : 'No'}
-                      size="small"
-                      color={product.inStock ? 'success' : 'error'}
-                    />
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Price:</TableCell>
-                  <TableCell>${product.price}</TableCell>
-                </TableRow>
-                <TableRow sx={{ bgcolor: 'action.hover' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Country:</TableCell>
-                  <TableCell>{product.country.toUpperCase()}</TableCell>
-                </TableRow>
-              </React.Fragment>
+            {searchResults.map((product) => (
+              <TableRow
+                key={product.id}
+                sx={{
+                  '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
+                  '&:hover': { bgcolor: 'action.selected' },
+                }}
+              >
+                <TableCell component="th" scope="row">
+                  {product.productName}
+                </TableCell>
+                <TableCell>
+                  <Chip label={product.category} size="small" color="primary" variant="outlined" />
+                </TableCell>
+                <TableCell>
+                  <Chip label={product.condition} size="small" />
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={product.inStock ? 'Yes' : 'No'}
+                    size="small"
+                    color={product.inStock ? 'success' : 'error'}
+                    variant="outlined"
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    ${product.price}
+                  </Typography>
+                </TableCell>
+                <TableCell>{product.country.toUpperCase()}</TableCell>
+              </TableRow>
             ))}
           </TableBody>
         </Table>
