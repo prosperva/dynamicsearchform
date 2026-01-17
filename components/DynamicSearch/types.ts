@@ -65,6 +65,7 @@ export interface DynamicSearchProps {
   enableSaveSearch?: boolean;
   searchButtonText?: string;
   resetButtonText?: string;
+  onReset?: () => void; // Callback when reset button is clicked
   currentUser?: string;
   searchContext?: string;
   allowCrossContext?: boolean;

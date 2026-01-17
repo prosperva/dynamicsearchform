@@ -34,9 +34,6 @@ import {
   ListItemIcon,
   ListItemText,
   Tooltip,
-  Select,
-  MenuItem as MuiMenuItem,
-  InputLabel,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -50,11 +47,10 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   MoreVert as MoreVertIcon,
-  ViewModule as GridIcon,
-  Description as ReportIcon,
 } from '@mui/icons-material';
 import { DynamicSearchProps, SavedSearch, SearchVisibility, ModalPosition, ViewMode, FormMode } from './types';
 import { FieldRenderer } from './FieldRenderer';
+import { SearchableDropdown } from './SearchableDropdown';
 
 // Helper function to get dialog positioning styles
 const getDialogStyles = (position: ModalPosition = 'center'): SxProps<Theme> => {
@@ -142,6 +138,7 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
   enableSaveSearch = true,
   searchButtonText = 'Search',
   resetButtonText = 'Reset',
+  onReset,
   currentUser = 'current_user',
   searchContext,
   allowCrossContext = false,
@@ -327,6 +324,13 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
   };
 
   const handleReset = () => {
+    // If onReset callback is provided, call it (e.g., to close a dialog)
+    if (onReset) {
+      onReset();
+      return;
+    }
+
+    // Otherwise, perform default reset behavior
     const resetValues: Record<string, any> = {};
     fields.forEach((field) => {
       if (field.type === 'group' && field.fields) {
@@ -628,35 +632,18 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
 
           <Divider sx={{ my: 3 }} />
 
+          {/* Output Format Selector - inside search form */}
           {enableViewMode && (
             <Box mb={2}>
-              <FormControl fullWidth size="small" sx={{ maxWidth: 300 }}>
-                <InputLabel id="view-mode-label">Search Results</InputLabel>
-                <Select
-                  labelId="view-mode-label"
-                  id="view-mode-select"
-                  value={selectedViewMode}
-                  label="Search Results"
-                  onChange={(e) => handleViewModeChange(e.target.value as ViewMode)}
-                >
-                  {availableViewModes.includes('grid') && (
-                    <MuiMenuItem value="grid">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <GridIcon fontSize="small" />
-                        <span>Grid</span>
-                      </Box>
-                    </MuiMenuItem>
-                  )}
-                  {availableViewModes.includes('report') && (
-                    <MuiMenuItem value="report">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <ReportIcon fontSize="small" />
-                        <span>Report</span>
-                      </Box>
-                    </MuiMenuItem>
-                  )}
-                </Select>
-              </FormControl>
+              <SearchableDropdown
+                label="Output Format"
+                value={selectedViewMode}
+                onChange={(newValue) => handleViewModeChange(newValue as ViewMode)}
+                options={availableViewModes.map(mode => ({
+                  label: mode === 'grid' ? 'Search Results' : 'Report',
+                  value: mode,
+                }))}
+              />
             </Box>
           )}
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -26,6 +26,9 @@ import {
   ListItemText,
   Grid,
   TextField,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -57,6 +60,79 @@ export default function Home() {
   const [dialogMode, setDialogMode] = useState<'view' | 'edit'>('edit'); // Track if dialog is for viewing or editing
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [downloadMenuAnchor, setDownloadMenuAnchor] = useState<null | HTMLElement>(null);
+  const [columnSelectorOpen, setColumnSelectorOpen] = useState(false);
+
+  // Handler functions need to be defined before columns
+  const handleViewRow = (row: any) => {
+    setSelectedRow(row);
+    setDialogMode('view');
+    setEditDialogOpen(true);
+  };
+
+  const handleEditRow = (row: any) => {
+    setSelectedRow(row);
+    setDialogMode('edit');
+    setEditDialogOpen(true);
+  };
+
+  // Define columns for the data grid
+  const columns: GridColDef[] = [
+    { field: 'id', headerName: 'ID', width: 70 },
+    { field: 'productName', headerName: 'Product Name', width: 200 },
+    { field: 'category', headerName: 'Category', width: 130 },
+    { field: 'condition', headerName: 'Condition', width: 130 },
+    { field: 'inStock', headerName: 'In Stock', width: 100, type: 'boolean' },
+    { field: 'price', headerName: 'Price ($)', width: 100, type: 'number' },
+    { field: 'country', headerName: 'Country', width: 100 },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 200,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', height: '100%' }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<ViewIcon />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewRow(params.row);
+            }}
+          >
+            View
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<EditIcon />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditRow(params.row);
+            }}
+          >
+            Edit
+          </Button>
+        </Box>
+      ),
+    },
+  ];
+
+  // Derive available columns from grid definition (exclude 'id' and 'actions')
+  const availableColumns = useMemo(
+    () =>
+      columns
+        .filter((col) => col.field !== 'id' && col.field !== 'actions')
+        .map((col) => ({
+          id: col.field,
+          label: col.headerName || col.field,
+          selected: true,
+        })),
+    []
+  );
+
+  const [selectedColumns, setSelectedColumns] = useState(availableColumns);
 
   // Define the search fields configuration (all optional for searching)
   // Note: Pill fields are placed at the end to prevent layout shifts when expanded
@@ -302,53 +378,84 @@ export default function Home() {
 
   const editFieldsWithAccordion = [...searchFields, accordionField];
 
-  const handleSearch = (params: Record<string, any>, selectedViewMode?: ViewMode) => {
+  /**
+   * Fetch search results from API
+   * @param searchParams - The search parameters
+   * @param paginated - Whether to use pagination (true for grid, false for report)
+   */
+  const fetchSearchResults = async (searchParams: Record<string, any>, paginated: boolean) => {
+    try {
+      // In production, this would call your actual API endpoint
+      // const response = await fetch('/api/products/search', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     ...searchParams,
+      //     pagination: paginated,
+      //   }),
+      // });
+      //
+      // if (!response.ok) {
+      //   throw new Error('Failed to fetch search results');
+      // }
+      //
+      // const data = await response.json();
+      // return data.results || [];
+
+      // For demo purposes, simulate API call with local filtering
+      await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
+
+      let filtered = [...gridData];
+
+      if (searchParams.productName) {
+        filtered = filtered.filter(item =>
+          item.productName.toLowerCase().includes(searchParams.productName.toLowerCase())
+        );
+      }
+
+      if (searchParams.category) {
+        filtered = filtered.filter(item => item.category === searchParams.category);
+      }
+
+      if (searchParams.condition) {
+        filtered = filtered.filter(item => item.condition === searchParams.condition);
+      }
+
+      if (searchParams.inStock) {
+        filtered = filtered.filter(item => item.inStock === true);
+      }
+
+      if (searchParams.price) {
+        filtered = filtered.filter(item => item.price <= Number(searchParams.price));
+      }
+
+      if (searchParams.country) {
+        filtered = filtered.filter(item => item.country === searchParams.country);
+      }
+
+      // In production, the API would handle pagination
+      // For demo, we return all data regardless of pagination parameter
+      console.log('API call with pagination:', paginated);
+
+      return filtered;
+    } catch (error) {
+      console.error('Error fetching search results:', error);
+      return [];
+    }
+  };
+
+  const handleSearch = async (params: Record<string, any>, selectedViewMode?: ViewMode) => {
     console.log('Search Parameters:', params);
     console.log('Selected View Mode:', selectedViewMode);
 
-    // Filter gridData based on search params
-    let filtered = [...gridData];
+    // Determine if pagination should be used based on view mode
+    const usePagination = selectedViewMode === 'grid';
 
-    if (params.productName) {
-      filtered = filtered.filter(item =>
-        item.productName.toLowerCase().includes(params.productName.toLowerCase())
-      );
-    }
+    // Fetch results from API with appropriate pagination parameter
+    const results = await fetchSearchResults(params, usePagination);
 
-    if (params.category) {
-      filtered = filtered.filter(item => item.category === params.category);
-    }
-
-    if (params.condition) {
-      filtered = filtered.filter(item => item.condition === params.condition);
-    }
-
-    if (params.inStock) {
-      filtered = filtered.filter(item => item.inStock === true);
-    }
-
-    if (params.price) {
-      filtered = filtered.filter(item => item.price <= Number(params.price));
-    }
-
-    if (params.country) {
-      filtered = filtered.filter(item => item.country === params.country);
-    }
-
-    setSearchResults(filtered);
+    setSearchResults(results);
     setHasSearched(true);
-  };
-
-  const handleViewRow = (row: any) => {
-    setSelectedRow(row);
-    setDialogMode('view');
-    setEditDialogOpen(true);
-  };
-
-  const handleEditRow = (row: any) => {
-    setSelectedRow(row);
-    setDialogMode('edit');
-    setEditDialogOpen(true);
   };
 
   const handleEditSave = (editedData: Record<string, any>) => {
@@ -365,50 +472,6 @@ export default function Home() {
     setEditDialogOpen(false);
     setSelectedRow(null);
   };
-
-  // Define columns for the data grid
-  const columns: GridColDef[] = [
-    { field: 'id', headerName: 'ID', width: 70 },
-    { field: 'productName', headerName: 'Product Name', width: 200 },
-    { field: 'category', headerName: 'Category', width: 130 },
-    { field: 'condition', headerName: 'Condition', width: 130 },
-    { field: 'inStock', headerName: 'In Stock', width: 100, type: 'boolean' },
-    { field: 'price', headerName: 'Price ($)', width: 100, type: 'number' },
-    { field: 'country', headerName: 'Country', width: 100 },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 150,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => (
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<ViewIcon />}
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent row click event
-              handleViewRow(params.row);
-            }}
-          >
-            View
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<EditIcon />}
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent row click event
-              handleEditRow(params.row);
-            }}
-          >
-            Edit
-          </Button>
-        </Box>
-      ),
-    },
-  ];
 
   const handleSaveSearch = (search: SavedSearch) => {
     setSavedSearches((prev) => [...prev, search]);
@@ -455,17 +518,43 @@ export default function Home() {
     </div>
   );
 
+  // Column selection handlers
+  const handleToggleColumn = (columnId: string) => {
+    setSelectedColumns(prev =>
+      prev.map(col =>
+        col.id === columnId ? { ...col, selected: !col.selected } : col
+      )
+    );
+  };
+
+  const handleSelectAllColumns = () => {
+    setSelectedColumns(prev => prev.map(col => ({ ...col, selected: true })));
+  };
+
+  const handleDeselectAllColumns = () => {
+    setSelectedColumns(prev => prev.map(col => ({ ...col, selected: false })));
+  };
+
   const handleDownloadReport = async (format: ReportFormat) => {
     setDownloadMenuAnchor(null);
 
     const timestamp = new Date().toISOString().split('T')[0];
     const fileName = `product-report-${timestamp}`;
 
+    // Get only selected columns
+    const activeColumns = selectedColumns.filter(col => col.selected);
+
+    if (activeColumns.length === 0) {
+      alert('Please select at least one column to export');
+      return;
+    }
+
     try {
       switch (format) {
         case 'pdf': {
           // Dynamic import to reduce bundle size
-          const { jsPDF } = await import('jspdf');
+          const jsPDFModule = await import('jspdf');
+          const jsPDF = jsPDFModule.default;
           const autoTable = (await import('jspdf-autotable')).default;
 
           const doc = new jsPDF();
@@ -483,18 +572,22 @@ export default function Home() {
           // Reset text color
           doc.setTextColor(0);
 
-          // Generate table
+          // Generate table with selected columns only
+          const headers = activeColumns.map(col => col.label);
+          const body = searchResults.map(product =>
+            activeColumns.map(col => {
+              const value = product[col.id];
+              if (col.id === 'inStock') return value ? 'Yes' : 'No';
+              if (col.id === 'price') return `$${value}`;
+              if (col.id === 'country') return value.toUpperCase();
+              return value;
+            })
+          );
+
           autoTable(doc, {
             startY: 42,
-            head: [['Product Name', 'Category', 'Condition', 'In Stock', 'Price', 'Country']],
-            body: searchResults.map(product => [
-              product.productName,
-              product.category,
-              product.condition,
-              product.inStock ? 'Yes' : 'No',
-              `$${product.price}`,
-              product.country.toUpperCase(),
-            ]),
+            head: [headers],
+            body: body,
             styles: {
               fontSize: 10,
               cellPadding: 3,
@@ -518,27 +611,24 @@ export default function Home() {
           // Dynamic import to reduce bundle size
           const XLSX = await import('xlsx');
 
-          // Prepare data with headers
+          // Prepare data with selected columns only
           const worksheet = XLSX.utils.json_to_sheet(
-            searchResults.map(product => ({
-              'Product Name': product.productName,
-              'Category': product.category,
-              'Condition': product.condition,
-              'In Stock': product.inStock ? 'Yes' : 'No',
-              'Price': product.price,
-              'Country': product.country.toUpperCase(),
-            }))
+            searchResults.map(product => {
+              const row: any = {};
+              activeColumns.forEach(col => {
+                const value = product[col.id];
+                let formattedValue = value;
+                if (col.id === 'inStock') formattedValue = value ? 'Yes' : 'No';
+                else if (col.id === 'price') formattedValue = value;
+                else if (col.id === 'country') formattedValue = value.toUpperCase();
+                row[col.label] = formattedValue;
+              });
+              return row;
+            })
           );
 
-          // Set column widths
-          const columnWidths = [
-            { wch: 25 }, // Product Name
-            { wch: 15 }, // Category
-            { wch: 12 }, // Condition
-            { wch: 10 }, // In Stock
-            { wch: 10 }, // Price
-            { wch: 10 }, // Country
-          ];
+          // Set column widths dynamically
+          const columnWidths = activeColumns.map(() => ({ wch: 20 }));
           worksheet['!cols'] = columnWidths;
 
           // Create workbook and add worksheet
@@ -559,19 +649,20 @@ export default function Home() {
         }
 
         case 'csv': {
-          // Generate CSV
-          const headers = ['Product Name', 'Category', 'Condition', 'In Stock', 'Price', 'Country'];
+          // Generate CSV with selected columns only
+          const headers = activeColumns.map(col => col.label);
           const csvRows = [
             headers.join(','),
             ...searchResults.map(product =>
-              [
-                `"${product.productName}"`,
-                product.category,
-                product.condition,
-                product.inStock ? 'Yes' : 'No',
-                product.price,
-                product.country.toUpperCase(),
-              ].join(',')
+              activeColumns.map(col => {
+                const value = product[col.id];
+                let formattedValue = value;
+                if (col.id === 'inStock') formattedValue = value ? 'Yes' : 'No';
+                else if (col.id === 'price') formattedValue = value;
+                else if (col.id === 'country') formattedValue = value.toUpperCase();
+                else if (col.id === 'productName') formattedValue = `"${value}"`;
+                return formattedValue;
+              }).join(',')
             ),
           ];
           const csvContent = csvRows.join('\n');
@@ -593,95 +684,117 @@ export default function Home() {
     }
   };
 
-  const renderReportView = () => (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Product Search Report
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<DownloadIcon />}
-          onClick={(e) => setDownloadMenuAnchor(e.currentTarget)}
-        >
-          Download Report
-        </Button>
-        <Menu
-          anchorEl={downloadMenuAnchor}
-          open={Boolean(downloadMenuAnchor)}
-          onClose={() => setDownloadMenuAnchor(null)}
-        >
-          <MenuItem onClick={() => handleDownloadReport('pdf')}>
-            <ListItemIcon>
-              <PdfIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Download as PDF</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={() => handleDownloadReport('excel')}>
-            <ListItemIcon>
-              <ExcelIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Download as Excel</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={() => handleDownloadReport('csv')}>
-            <ListItemIcon>
-              <CsvIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Download as CSV</ListItemText>
-          </MenuItem>
-        </Menu>
-      </Box>
-      <TableContainer component={Paper} variant="outlined">
-        <Table sx={{ minWidth: 650 }} aria-label="product report table">
-          <TableHead>
-            <TableRow sx={{ bgcolor: 'primary.main' }}>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Product Name</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Category</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Condition</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>In Stock</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="right">Price</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Country</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {searchResults.map((product) => (
-              <TableRow
-                key={product.id}
-                sx={{
-                  '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
-                  '&:hover': { bgcolor: 'action.selected' },
-                }}
-              >
-                <TableCell component="th" scope="row">
-                  {product.productName}
-                </TableCell>
-                <TableCell>
-                  <Chip label={product.category} size="small" color="primary" variant="outlined" />
-                </TableCell>
-                <TableCell>
-                  <Chip label={product.condition} size="small" />
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={product.inStock ? 'Yes' : 'No'}
-                    size="small"
-                    color={product.inStock ? 'success' : 'error'}
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    ${product.price}
-                  </Typography>
-                </TableCell>
-                <TableCell>{product.country.toUpperCase()}</TableCell>
+  const renderReportView = () => {
+    const activeColumns = selectedColumns.filter(col => col.selected);
+
+    return (
+      <Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Product Search Report ({searchResults.length} results)
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setColumnSelectorOpen(true)}
+            >
+              Select Columns
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<DownloadIcon />}
+              onClick={(e) => setDownloadMenuAnchor(e.currentTarget)}
+            >
+              Download Report
+            </Button>
+          </Box>
+          <Menu
+            anchorEl={downloadMenuAnchor}
+            open={Boolean(downloadMenuAnchor)}
+            onClose={() => setDownloadMenuAnchor(null)}
+          >
+            <MenuItem onClick={() => handleDownloadReport('pdf')}>
+              <ListItemIcon>
+                <PdfIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Download as PDF</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => handleDownloadReport('excel')}>
+              <ListItemIcon>
+                <ExcelIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Download as Excel</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => handleDownloadReport('csv')}>
+              <ListItemIcon>
+                <CsvIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Download as CSV</ListItemText>
+            </MenuItem>
+          </Menu>
+        </Box>
+        <TableContainer component={Paper} variant="outlined">
+          <Table sx={{ minWidth: 650 }} aria-label="product report table">
+            <TableHead>
+              <TableRow sx={{ bgcolor: 'primary.main' }}>
+                {activeColumns.map((col) => (
+                  <TableCell
+                    key={col.id}
+                    sx={{ color: 'white', fontWeight: 'bold' }}
+                    align={col.id === 'price' ? 'right' : 'left'}
+                  >
+                    {col.label}
+                  </TableCell>
+                ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Box>
-  );
+            </TableHead>
+            <TableBody>
+              {searchResults.map((product) => (
+                <TableRow
+                  key={product.id}
+                  sx={{
+                    '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
+                    '&:hover': { bgcolor: 'action.selected' },
+                  }}
+                >
+                  {activeColumns.map((col) => {
+                    const value = product[col.id];
+                    return (
+                      <TableCell
+                        key={col.id}
+                        align={col.id === 'price' ? 'right' : 'left'}
+                      >
+                        {col.id === 'category' ? (
+                          <Chip label={value} size="small" color="primary" variant="outlined" />
+                        ) : col.id === 'condition' ? (
+                          <Chip label={value} size="small" />
+                        ) : col.id === 'inStock' ? (
+                          <Chip
+                            label={value ? 'Yes' : 'No'}
+                            size="small"
+                            color={value ? 'success' : 'error'}
+                            variant="outlined"
+                          />
+                        ) : col.id === 'price' ? (
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            ${value}
+                          </Typography>
+                        ) : col.id === 'country' ? (
+                          value.toUpperCase()
+                        ) : (
+                          value
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+    );
+  };
 
 
   const renderResults = () => {
@@ -872,6 +985,7 @@ export default function Home() {
                 key={`edit-${selectedRow.id}`} // Force re-mount when editing different rows
                 fields={editFieldsWithAccordion}
                 onSearch={handleEditSave}
+                onReset={handleEditCancel}
                 searchButtonText="Save Changes"
                 resetButtonText="Cancel"
                 enableSaveSearch={false}
@@ -945,6 +1059,45 @@ export default function Home() {
               Close
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Column Selector Dialog */}
+      <Dialog
+        open={columnSelectorOpen}
+        onClose={() => setColumnSelectorOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Select Columns for Report</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <FormGroup>
+              {selectedColumns.map((col) => (
+                <FormControlLabel
+                  key={col.id}
+                  control={
+                    <Checkbox
+                      checked={col.selected}
+                      onChange={() => handleToggleColumn(col.id)}
+                    />
+                  }
+                  label={col.label}
+                />
+              ))}
+            </FormGroup>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeselectAllColumns}>
+            Deselect All
+          </Button>
+          <Button onClick={handleSelectAllColumns}>
+            Select All
+          </Button>
+          <Button onClick={() => setColumnSelectorOpen(false)} variant="contained">
+            Done
+          </Button>
         </DialogActions>
       </Dialog>
     </Container>
