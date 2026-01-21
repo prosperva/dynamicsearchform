@@ -21,6 +21,8 @@ export interface StandaloneDropdownFieldProps {
   onChange: (value: string | number) => void;
   options?: DropdownOption[];
   apiEndpoint?: string;
+  apiValueField?: string; // Field name for value in API response (default: 'value')
+  apiLabelField?: string; // Field name for label in API response (default: 'label')
   placeholder?: string;
   helperText?: string;
   error?: string;
@@ -34,6 +36,7 @@ export interface StandaloneDropdownFieldProps {
  *
  * Features:
  * - Static options or API-loaded options
+ * - Custom API field mapping
  * - Loading state for async data
  * - Optional tooltip
  * - Error state support
@@ -58,6 +61,17 @@ export interface StandaloneDropdownFieldProps {
  *   onChange={setCategory}
  *   apiEndpoint="/api/categories"
  * />
+ *
+ * @example
+ * // API with custom field names
+ * <StandaloneDropdownField
+ *   label="Category"
+ *   value={category}
+ *   onChange={setCategory}
+ *   apiEndpoint="/api/categories"
+ *   apiValueField="id"
+ *   apiLabelField="name"
+ * />
  */
 export const StandaloneDropdownField: React.FC<StandaloneDropdownFieldProps> = ({
   label,
@@ -65,6 +79,8 @@ export const StandaloneDropdownField: React.FC<StandaloneDropdownFieldProps> = (
   onChange,
   options: initialOptions = [],
   apiEndpoint,
+  apiValueField = 'value',
+  apiLabelField = 'label',
   placeholder,
   helperText,
   error,
@@ -82,7 +98,14 @@ export const StandaloneDropdownField: React.FC<StandaloneDropdownFieldProps> = (
         try {
           const response = await fetch(apiEndpoint);
           const data = await response.json();
-          setOptions(data);
+
+          // Map API response to DropdownOption format
+          const mappedOptions: DropdownOption[] = data.map((item: any) => ({
+            value: item[apiValueField],
+            label: item[apiLabelField],
+          }));
+
+          setOptions(mappedOptions);
         } catch (error) {
           console.error('Failed to fetch dropdown options:', error);
         } finally {
@@ -91,7 +114,7 @@ export const StandaloneDropdownField: React.FC<StandaloneDropdownFieldProps> = (
       };
       fetchOptions();
     }
-  }, [apiEndpoint]);
+  }, [apiEndpoint, apiValueField, apiLabelField]);
 
   const labelWithTooltip = tooltip ? (
     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>

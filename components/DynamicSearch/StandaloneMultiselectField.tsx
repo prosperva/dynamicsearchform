@@ -24,6 +24,8 @@ export interface StandaloneMultiselectFieldProps {
   onChange: (values: (string | number)[]) => void;
   options?: MultiselectOption[];
   apiEndpoint?: string;
+  apiValueField?: string; // Field name for value in API response (default: 'value')
+  apiLabelField?: string; // Field name for label in API response (default: 'label')
   placeholder?: string;
   helperText?: string;
   error?: string;
@@ -40,8 +42,10 @@ export interface StandaloneMultiselectFieldProps {
  * Features:
  * - Multiple value selection with autocomplete
  * - Static options or API-loaded options
+ * - Custom API field mapping
  * - Chip display for selected values
  * - Search/filter functionality
+ * - Optional "Select All" and "Clear All" buttons
  * - Optional tooltip
  *
  * @example
@@ -64,6 +68,18 @@ export interface StandaloneMultiselectFieldProps {
  *   onChange={setCountries}
  *   apiEndpoint="/api/countries"
  * />
+ *
+ * @example
+ * // API with custom field names and Select All buttons
+ * <StandaloneMultiselectField
+ *   label="Countries"
+ *   value={countries}
+ *   onChange={setCountries}
+ *   apiEndpoint="/api/countries"
+ *   apiValueField="countryId"
+ *   apiLabelField="countryName"
+ *   showSelectAllButtons={true}
+ * />
  */
 export const StandaloneMultiselectField: React.FC<StandaloneMultiselectFieldProps> = ({
   label,
@@ -71,6 +87,8 @@ export const StandaloneMultiselectField: React.FC<StandaloneMultiselectFieldProp
   onChange,
   options: initialOptions = [],
   apiEndpoint,
+  apiValueField = 'value',
+  apiLabelField = 'label',
   placeholder,
   helperText,
   error,
@@ -90,7 +108,14 @@ export const StandaloneMultiselectField: React.FC<StandaloneMultiselectFieldProp
         try {
           const response = await fetch(apiEndpoint);
           const data = await response.json();
-          setOptions(data);
+
+          // Map API response to MultiselectOption format
+          const mappedOptions: MultiselectOption[] = data.map((item: any) => ({
+            value: item[apiValueField],
+            label: item[apiLabelField],
+          }));
+
+          setOptions(mappedOptions);
         } catch (error) {
           console.error('Failed to fetch multiselect options:', error);
         } finally {
@@ -99,7 +124,7 @@ export const StandaloneMultiselectField: React.FC<StandaloneMultiselectFieldProp
       };
       fetchOptions();
     }
-  }, [apiEndpoint]);
+  }, [apiEndpoint, apiValueField, apiLabelField]);
 
   const labelWithTooltip = tooltip ? (
     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>

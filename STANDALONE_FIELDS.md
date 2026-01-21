@@ -127,6 +127,7 @@ interface StandaloneNumberFieldProps {
 
 **Features**:
 - Static or API-loaded options
+- Custom API field mapping
 - Loading state
 - Optional "None" option
 - Tooltip support
@@ -139,6 +140,8 @@ interface StandaloneDropdownFieldProps {
   onChange: (value: string | number) => void;
   options?: DropdownOption[];
   apiEndpoint?: string;
+  apiValueField?: string; // Field name for value in API response (default: 'value')
+  apiLabelField?: string; // Field name for label in API response (default: 'label')
   placeholder?: string;
   helperText?: string;
   error?: string;
@@ -175,6 +178,20 @@ interface DropdownOption {
   value={category}
   onChange={setCategory}
   apiEndpoint="/api/categories"
+  helperText="Select a product category"
+/>
+```
+
+**Example (API with Custom Field Names)**:
+```typescript
+// API returns: [{ id: 1, name: 'Electronics' }, { id: 2, name: 'Clothing' }]
+<StandaloneDropdownField
+  label="Category"
+  value={category}
+  onChange={setCategory}
+  apiEndpoint="/api/categories"
+  apiValueField="id"
+  apiLabelField="name"
   helperText="Select a product category"
 />
 ```
@@ -328,6 +345,7 @@ function MyForm() {
 - Autocomplete/search
 - Chip display
 - Static or API-loaded options
+- Custom API field mapping
 - Loading state
 - Limit tags display
 - Optional "Select All" and "Clear All" buttons
@@ -340,6 +358,8 @@ interface StandaloneMultiselectFieldProps {
   onChange: (values: (string | number)[]) => void;
   options?: MultiselectOption[];
   apiEndpoint?: string;
+  apiValueField?: string; // Field name for value in API response (default: 'value')
+  apiLabelField?: string; // Field name for label in API response (default: 'label')
   placeholder?: string;
   helperText?: string;
   error?: string;
@@ -396,6 +416,20 @@ interface MultiselectOption {
   ]}
   showSelectAllButtons={true}
   helperText="Select product tags"
+/>
+```
+
+**Example (API with Custom Field Names)**:
+```typescript
+// API returns: [{ countryId: 'us', countryName: 'United States' }, ...]
+<StandaloneMultiselectField
+  label="Countries"
+  value={countries}
+  onChange={setCountries}
+  apiEndpoint="/api/countries"
+  apiValueField="countryId"
+  apiLabelField="countryName"
+  showSelectAllButtons={true}
 />
 ```
 
