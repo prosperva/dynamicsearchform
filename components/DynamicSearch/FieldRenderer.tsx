@@ -78,6 +78,11 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
     (formMode === 'edit' && field.requiredForEdit) ||
     (formMode === 'search' && field.requiredForSearch);
 
+  // Determine if field is disabled based on form mode
+  const isDisabled = field.disabled ||
+    (formMode === 'edit' && field.disabledInEdit) ||
+    (formMode === 'search' && field.disabledInSearch);
+
   // Helper to find a field by name (recursively search through groups/accordions)
   const findFieldByName = (name: string, fields: FieldConfig[]): FieldConfig | null => {
     for (const f of fields) {
@@ -177,6 +182,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
             placeholder={field.placeholder}
             helperText={error || field.helperText}
             required={isRequired}
+            disabled={isDisabled}
             variant="outlined"
             error={!!error}
           />
@@ -196,6 +202,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           placeholder={field.placeholder}
           helperText={error || field.helperText}
           required={isRequired}
+          disabled={isDisabled}
           variant="outlined"
           error={!!error}
         />
@@ -210,6 +217,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
             onChange={(newValue: Dayjs | null) => {
               handleChange(newValue ? newValue.format('YYYY-MM-DD') : '');
             }}
+            disabled={isDisabled}
             slotProps={{
               textField: {
                 fullWidth: true,
@@ -233,6 +241,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           onChange={(_, newValue) => {
             handleChange(newValue ? newValue.value : '');
           }}
+          disabled={isDisabled}
           getOptionLabel={(option) => option.label}
           isOptionEqualToValue={(option, value) => option.value === value.value}
           renderInput={(params) => (
@@ -271,6 +280,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
             onChange={(_, newValue) => {
               handleChange(newValue.map((opt) => opt.value));
             }}
+            disabled={isDisabled}
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(option, value) => option.value === value.value}
             renderInput={(params) => (
@@ -299,7 +309,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
             <Button
               size="small"
               onClick={handleSelectAll}
-              disabled={allSelected}
+              disabled={isDisabled || allSelected}
               variant="outlined"
             >
               Select All
@@ -307,7 +317,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
             <Button
               size="small"
               onClick={handleClearAll}
-              disabled={!value || value.length === 0}
+              disabled={isDisabled || !value || value.length === 0}
               variant="outlined"
             >
               Clear All
@@ -324,6 +334,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
               checked={value || false}
               onChange={(e) => handleChange(e.target.checked)}
               name={field.name}
+              disabled={isDisabled}
             />
           }
           label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
@@ -333,7 +344,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
 
     case 'radio':
       return (
-        <FormControl component="fieldset" required={isRequired} error={!!error}>
+        <FormControl component="fieldset" required={isRequired} error={!!error} disabled={isDisabled}>
           <FormLabel component="legend">
             <LabelWithTooltip label={field.label} tooltip={field.tooltip} />
           </FormLabel>
@@ -367,6 +378,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           placeholder={field.placeholder}
           helperText={field.helperText}
           required={isRequired}
+          disabled={isDisabled}
           pillType={field.pillType}
           allowRanges={field.allowRanges}
           tooltip={field.tooltip}
@@ -397,6 +409,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
                 }}
                 allValues={{ ...allValues, ...(value || {}) }}
                 allFields={allFields}
+                formMode={formMode}
               />
             ))}
           </Stack>
@@ -437,6 +450,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
                   }}
                   allValues={{ ...allValues, ...(value || {}) }}
                   allFields={allFields}
+                  formMode={formMode}
                 />
               ))}
             </Stack>
@@ -458,11 +472,27 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
           placeholder={field.placeholder}
           helperText={field.helperText}
           required={isRequired}
+          disabled={isDisabled}
           tooltip={field.tooltip}
           allowMultiple={field.allowMultiple}
           error={error}
         />
       );
+
+    case 'richtext': {
+      const { RichTextEditor } = require('./RichTextEditor');
+      const labelText = isRequired ? `${field.label} *` : field.label;
+      return (
+        <RichTextEditor
+          value={value || ''}
+          onChange={(html: string) => onChange(field.name, html)}
+          placeholder={field.placeholder}
+          disabled={isDisabled}
+          label={labelText}
+          helperText={field.helperText}
+        />
+      );
+    }
 
     default:
       return null;

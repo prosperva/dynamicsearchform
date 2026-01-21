@@ -1,4 +1,4 @@
-export type FieldType = 'text' | 'number' | 'dropdown' | 'checkbox' | 'radio' | 'date' | 'multiselect' | 'pill' | 'group' | 'modal-select' | 'accordion';
+export type FieldType = 'text' | 'number' | 'dropdown' | 'checkbox' | 'radio' | 'date' | 'multiselect' | 'pill' | 'group' | 'modal-select' | 'accordion' | 'richtext';
 
 export interface DropdownOption {
   label: string;
@@ -19,6 +19,9 @@ export interface FieldConfig {
   required?: boolean; // Always required (both search and edit)
   requiredForEdit?: boolean; // Only required in edit mode
   requiredForSearch?: boolean; // Only required in search mode
+  disabled?: boolean; // Always disabled (both search and edit)
+  disabledInEdit?: boolean; // Only disabled in edit mode (e.g., ID, created_at fields)
+  disabledInSearch?: boolean; // Only disabled in search mode
   placeholder?: string;
   helperText?: string;
   pillType?: 'number' | 'text';

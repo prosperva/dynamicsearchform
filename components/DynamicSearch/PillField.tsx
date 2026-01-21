@@ -21,6 +21,7 @@ interface PillFieldProps {
   placeholder?: string;
   helperText?: string;
   required?: boolean;
+  disabled?: boolean;
   pillType?: 'number' | 'text';
   allowRanges?: boolean;
   tooltip?: string;
@@ -35,6 +36,7 @@ export const PillField: React.FC<PillFieldProps> = ({
   placeholder,
   helperText,
   required,
+  disabled = false,
   pillType = 'text',
   allowRanges = false,
   tooltip,
@@ -186,6 +188,7 @@ export const PillField: React.FC<PillFieldProps> = ({
         variant="outlined"
         error={!!error}
         required={required}
+        disabled={disabled}
         helperText={error || helperText}
       />
 
@@ -214,10 +217,11 @@ export const PillField: React.FC<PillFieldProps> = ({
                 <Chip
                   key={`${val}-${index}`}
                   label={val}
-                  onDelete={() => handleDelete(val)}
+                  onDelete={disabled ? undefined : () => handleDelete(val)}
                   color="primary"
                   variant="outlined"
                   size="small"
+                  disabled={disabled}
                 />
               ))}
             </Box>
@@ -239,10 +243,11 @@ export const PillField: React.FC<PillFieldProps> = ({
                       <Chip
                         key={`${val}-${index + COMPACT_DISPLAY_LIMIT}`}
                         label={val}
-                        onDelete={() => handleDelete(val)}
+                        onDelete={disabled ? undefined : () => handleDelete(val)}
                         color="primary"
                         variant="outlined"
                         size="small"
+                        disabled={disabled}
                       />
                     ))}
                   </Box>
@@ -279,6 +284,7 @@ export const PillField: React.FC<PillFieldProps> = ({
               size="small"
               onClick={handleClearAll}
               variant="outlined"
+              disabled={disabled}
             >
               Clear All
             </Button>

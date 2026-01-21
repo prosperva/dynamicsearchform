@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { LockService } from '@/lib/lockService';
 import {
   Container,
   Typography,
@@ -37,20 +38,41 @@ import {
   Description as CsvIcon,
   Edit as EditIcon,
   Visibility as ViewIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import { DynamicSearch, FieldConfig, SavedSearch, ViewMode, ReportFormat } from '@/components/DynamicSearch';
 
 // Mock data for demonstration
 const mockProducts = [
-  { id: 1, productName: 'Wireless Mouse', category: 'electronics', condition: 'new', inStock: true, price: 25, country: 'us' },
-  { id: 2, productName: 'Gaming Keyboard', category: 'electronics', condition: 'new', inStock: true, price: 89, country: 'ca' },
-  { id: 3, productName: 'Office Chair', category: 'home-garden', condition: 'refurbished', inStock: false, price: 199, country: 'uk' },
-  { id: 4, productName: 'Standing Desk', category: 'home-garden', condition: 'new', inStock: true, price: 450, country: 'us' },
-  { id: 5, productName: 'USB-C Cable', category: 'electronics', condition: 'new', inStock: true, price: 12, country: 'cn' },
+  { id: 1, productName: 'Wireless Mouse', category: 'electronics', condition: 'new', inStock: true, price: 25, country: 'us', readOnly: false },
+  { id: 2, productName: 'Gaming Keyboard', category: 'electronics', condition: 'new', inStock: true, price: 89, country: 'ca', readOnly: true },
+  { id: 3, productName: 'Office Chair', category: 'home-garden', condition: 'refurbished', inStock: false, price: 199, country: 'uk', readOnly: false },
+  { id: 4, productName: 'Standing Desk', category: 'home-garden', condition: 'new', inStock: true, price: 450, country: 'us', readOnly: false },
+  { id: 5, productName: 'USB-C Cable', category: 'electronics', condition: 'new', inStock: true, price: 12, country: 'cn', readOnly: true },
 ];
 
+/**
+ * Recursively disable all fields including nested fields in accordion/group types
+ * @param fields - Array of field configurations
+ * @returns New array with all fields disabled
+ */
+const disableAllFields = (fields: FieldConfig[]): FieldConfig[] => {
+  return fields.map(field => ({
+    ...field,
+    disabled: true,
+    // Recursively disable nested fields if they exist
+    fields: field.fields ? disableAllFields(field.fields) : undefined,
+  }));
+};
+
 export default function Home() {
+  // ========================================
+  // CONFIGURATION OPTIONS
+  // ========================================
+  const enableExport = true; // Set to false to hide export/download functionality
+  const enableEditView = true; // Set to false to hide View/Edit buttons in grid
+
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [gridData, setGridData] = useState(mockProducts);
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -62,6 +84,10 @@ export default function Home() {
   const [downloadMenuAnchor, setDownloadMenuAnchor] = useState<null | HTMLElement>(null);
   const [columnSelectorOpen, setColumnSelectorOpen] = useState(false);
 
+  // Track locked rows: { rowId: { lockedBy: string, lockedAt: Date } }
+  const [lockedRows, setLockedRows] = useState<Record<number, { lockedBy: string; lockedAt: Date }>>({});
+  const currentUser = 'user@example.com'; // In production, get from auth context
+
   // Handler functions need to be defined before columns
   const handleViewRow = (row: any) => {
     setSelectedRow(row);
@@ -69,14 +95,41 @@ export default function Home() {
     setEditDialogOpen(true);
   };
 
-  const handleEditRow = (row: any) => {
+  const handleEditRow = async (row: any) => {
+    // Check if row is read-only
+    if (row.readOnly) {
+      alert('This record is read-only and cannot be edited.');
+      return;
+    }
+
+    // Check if row is locked by another user (from local state first for instant feedback)
+    const lock = lockedRows[row.id];
+    if (lock && lock.lockedBy !== currentUser) {
+      alert(`This record is currently being edited by ${lock.lockedBy}.\nPlease try again later.`);
+      return;
+    }
+
+    // Try to acquire lock from database
+    const lockResult = await LockService.acquireLock('products', row.id.toString(), currentUser);
+
+    if (!lockResult.success) {
+      alert(`This record is currently being edited by ${lockResult.lockedBy}.\nPlease try again later.`);
+      return;
+    }
+
+    // Update local state
+    setLockedRows(prev => ({
+      ...prev,
+      [row.id]: { lockedBy: currentUser, lockedAt: new Date() }
+    }));
+
     setSelectedRow(row);
     setDialogMode('edit');
     setEditDialogOpen(true);
   };
 
   // Define columns for the data grid
-  const columns: GridColDef[] = [
+  const baseColumns: GridColDef[] = [
     { field: 'id', headerName: 'ID', width: 70 },
     { field: 'productName', headerName: 'Product Name', width: 200 },
     { field: 'category', headerName: 'Category', width: 130 },
@@ -84,40 +137,79 @@ export default function Home() {
     { field: 'inStock', headerName: 'In Stock', width: 100, type: 'boolean' },
     { field: 'price', headerName: 'Price ($)', width: 100, type: 'number' },
     { field: 'country', headerName: 'Country', width: 100 },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 200,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => (
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', height: '100%' }}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<ViewIcon />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewRow(params.row);
-            }}
-          >
-            View
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<EditIcon />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditRow(params.row);
-            }}
-          >
-            Edit
-          </Button>
-        </Box>
-      ),
-    },
   ];
+
+  // Conditionally add Actions column if enableEditView is true
+  const columns: GridColDef[] = enableEditView
+    ? [
+        ...baseColumns,
+        {
+          field: 'actions',
+          headerName: 'Actions',
+          width: 280,
+          sortable: false,
+          filterable: false,
+          renderCell: (params) => {
+            const lock = lockedRows[params.row.id];
+            const isLockedByOther = lock && lock.lockedBy !== currentUser;
+            const isLockedByMe = lock && lock.lockedBy === currentUser;
+
+            return (
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', height: '100%' }}>
+                {isLockedByOther && (
+                  <Chip
+                    icon={<LockIcon />}
+                    label={`Locked by ${lock.lockedBy.split('@')[0]}`}
+                    size="small"
+                    color="warning"
+                    sx={{ fontSize: '0.7rem' }}
+                  />
+                )}
+                {isLockedByMe && (
+                  <Chip
+                    icon={<LockIcon />}
+                    label="Editing"
+                    size="small"
+                    color="info"
+                    sx={{ fontSize: '0.7rem' }}
+                  />
+                )}
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ViewIcon />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewRow(params.row);
+                  }}
+                >
+                  View
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  startIcon={<EditIcon />}
+                  disabled={params.row.readOnly || isLockedByOther} // Disable if read-only or locked by another user
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditRow(params.row);
+                  }}
+                  title={
+                    params.row.readOnly
+                      ? 'This record is read-only'
+                      : isLockedByOther
+                      ? `Locked by ${lock.lockedBy}`
+                      : 'Edit this record'
+                  }
+                >
+                  Edit
+                </Button>
+              </Box>
+            );
+          },
+        },
+      ]
+    : baseColumns;
 
   // Derive available columns from grid definition (exclude 'id' and 'actions')
   const availableColumns = useMemo(
@@ -373,10 +465,22 @@ export default function Home() {
         type: 'number',
         defaultValue: 3,
       },
+      {
+        name: 'specialInstructions',
+        label: 'Special Shipping Instructions',
+        type: 'richtext',
+        placeholder: 'Enter any special shipping instructions here...',
+        helperText: 'Use the rich text editor to format shipping notes, delivery requirements, or handling instructions',
+        tooltip: 'This field supports formatting like bold, italic, lists, and quotes for clear shipping instructions',
+      },
     ],
   };
 
-  const editFieldsWithAccordion = [...searchFields, accordionField];
+  // For search: include accordion with shipping info
+  const searchFieldsWithAccordion = [...searchFields, accordionField];
+
+  // For edit: use search fields only (no accordion)
+  const editFields = searchFields;
 
   /**
    * Fetch search results from API
@@ -464,14 +568,69 @@ export default function Home() {
     setGridData((prev) =>
       prev.map((item) => (item.id === selectedRow.id ? { ...item, ...editedData } : item))
     );
+
+    // Also update searchResults if present
+    if (hasSearched) {
+      setSearchResults((prev) =>
+        prev.map((item) => (item.id === selectedRow.id ? { ...item, ...editedData } : item))
+      );
+    }
+
+    handleEditCancel(); // This will release the lock and close dialog
+  };
+
+  const handleEditCancel = async () => {
+    // Release lock when closing dialog
+    if (selectedRow) {
+      // Release lock in database
+      await LockService.releaseLock('products', selectedRow.id.toString(), currentUser);
+
+      // Update local state
+      setLockedRows(prev => {
+        const newLocks = { ...prev };
+        delete newLocks[selectedRow.id];
+        return newLocks;
+      });
+    }
     setEditDialogOpen(false);
     setSelectedRow(null);
   };
 
-  const handleEditCancel = () => {
-    setEditDialogOpen(false);
-    setSelectedRow(null);
-  };
+  // Sync locks from database on mount and periodically
+  useEffect(() => {
+    const syncLocks = async () => {
+      const locks = await LockService.getTableLocks('products');
+      const lockMap: Record<number, { lockedBy: string; lockedAt: Date }> = {};
+
+      locks.forEach(lock => {
+        lockMap[Number(lock.rowId)] = {
+          lockedBy: lock.lockedBy,
+          lockedAt: new Date(lock.lockedAt)
+        };
+      });
+
+      setLockedRows(lockMap);
+    };
+
+    // Initial sync
+    syncLocks();
+
+    // Sync every 10 seconds to get updates from other users
+    const interval = setInterval(syncLocks, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Heartbeat to keep lock alive while editing
+  useEffect(() => {
+    if (!editDialogOpen || !selectedRow || selectedRow.readOnly) return;
+
+    const heartbeat = setInterval(async () => {
+      await LockService.refreshLock('products', selectedRow.id.toString(), currentUser);
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(heartbeat);
+  }, [editDialogOpen, selectedRow, currentUser]);
 
   const handleSaveSearch = (search: SavedSearch) => {
     setSavedSearches((prev) => [...prev, search]);
@@ -700,38 +859,42 @@ export default function Home() {
             >
               Select Columns
             </Button>
-            <Button
-              variant="contained"
-              startIcon={<DownloadIcon />}
-              onClick={(e) => setDownloadMenuAnchor(e.currentTarget)}
-            >
-              Download Report
-            </Button>
+            {enableExport && (
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={(e) => setDownloadMenuAnchor(e.currentTarget)}
+              >
+                Download Report
+              </Button>
+            )}
           </Box>
-          <Menu
-            anchorEl={downloadMenuAnchor}
-            open={Boolean(downloadMenuAnchor)}
-            onClose={() => setDownloadMenuAnchor(null)}
-          >
-            <MenuItem onClick={() => handleDownloadReport('pdf')}>
-              <ListItemIcon>
-                <PdfIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText>Download as PDF</ListItemText>
-            </MenuItem>
-            <MenuItem onClick={() => handleDownloadReport('excel')}>
-              <ListItemIcon>
-                <ExcelIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText>Download as Excel</ListItemText>
-            </MenuItem>
-            <MenuItem onClick={() => handleDownloadReport('csv')}>
-              <ListItemIcon>
-                <CsvIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText>Download as CSV</ListItemText>
-            </MenuItem>
-          </Menu>
+          {enableExport && (
+            <Menu
+              anchorEl={downloadMenuAnchor}
+              open={Boolean(downloadMenuAnchor)}
+              onClose={() => setDownloadMenuAnchor(null)}
+            >
+              <MenuItem onClick={() => handleDownloadReport('pdf')}>
+                <ListItemIcon>
+                  <PdfIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Download as PDF</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={() => handleDownloadReport('excel')}>
+                <ListItemIcon>
+                  <ExcelIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Download as Excel</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={() => handleDownloadReport('csv')}>
+                <ListItemIcon>
+                  <CsvIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Download as CSV</ListItemText>
+              </MenuItem>
+            </Menu>
+          )}
         </Box>
         <TableContainer component={Paper} variant="outlined">
           <Table sx={{ minWidth: 650 }} aria-label="product report table">
@@ -846,7 +1009,7 @@ export default function Home() {
       </Box>
 
       <DynamicSearch
-        fields={searchFields}
+        fields={searchFieldsWithAccordion}
         onSearch={handleSearch}
         onSave={handleSaveSearch}
         onLoad={handleLoadSearch}
@@ -983,7 +1146,7 @@ export default function Home() {
             {selectedRow && dialogMode === 'edit' && (
               <DynamicSearch
                 key={`edit-${selectedRow.id}`} // Force re-mount when editing different rows
-                fields={editFieldsWithAccordion}
+                fields={editFields}
                 onSearch={handleEditSave}
                 onReset={handleEditCancel}
                 searchButtonText="Save Changes"
@@ -995,71 +1158,28 @@ export default function Home() {
               />
             )}
             {selectedRow && dialogMode === 'view' && (
-              <Box>
-                <TableContainer>
-                  <Table>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Product Name:</TableCell>
-                        <TableCell>{selectedRow.productName}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Category:</TableCell>
-                        <TableCell>
-                          <Chip label={selectedRow.category} size="small" color="primary" />
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Condition:</TableCell>
-                        <TableCell>
-                          <Chip label={selectedRow.condition} size="small" variant="outlined" />
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>In Stock:</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={selectedRow.inStock ? 'Yes' : 'No'}
-                            size="small"
-                            color={selectedRow.inStock ? 'success' : 'error'}
-                          />
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Price:</TableCell>
-                        <TableCell>${selectedRow.price}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>Country:</TableCell>
-                        <TableCell>{selectedRow.country?.toUpperCase()}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<EditIcon />}
-                    onClick={() => setDialogMode('edit')}
-                  >
-                    Switch to Edit Mode
-                  </Button>
-                </Box>
-              </Box>
+              <DynamicSearch
+                key={`view-${selectedRow.id}`} // Force re-mount when viewing different rows
+                fields={disableAllFields(editFields)} // Recursively disable all fields including nested accordion fields
+                onSearch={() => {
+                  // Prevent switching to edit mode for read-only rows
+                  if (selectedRow.readOnly) {
+                    alert('This record is read-only and cannot be edited.');
+                    return;
+                  }
+                  setDialogMode('edit');
+                }}
+                onReset={handleEditCancel}
+                searchButtonText={selectedRow.readOnly ? 'Read-Only' : 'Edit'} // Change button text for read-only rows
+                resetButtonText="Close"
+                enableSaveSearch={false}
+                initialValues={selectedRow}
+                columnLayout={1}
+                formMode="edit"
+              />
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
-          {dialogMode === 'edit' ? (
-            <Button onClick={handleEditCancel} variant="outlined">
-              Cancel
-            </Button>
-          ) : (
-            <Button onClick={handleEditCancel} variant="contained">
-              Close
-            </Button>
-          )}
-        </DialogActions>
       </Dialog>
 
       {/* Column Selector Dialog */}

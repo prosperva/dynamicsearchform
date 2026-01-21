@@ -587,18 +587,20 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
         </Paper>
       )}
 
-      <Paper elevation={3} sx={{ p: 3, mb: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h5" component="h2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <SearchIcon color="primary" />
-            Advanced Search
-          </Typography>
-          <IconButton onClick={() => setSearchExpanded(!searchExpanded)}>
-            {searchExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </IconButton>
-        </Box>
+      <Paper elevation={formMode === 'edit' ? 0 : 3} sx={{ p: formMode === 'edit' ? 0 : 3, mb: 2 }}>
+        {formMode !== 'edit' && (
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h5" component="h2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <SearchIcon color="primary" />
+              Advanced Search
+            </Typography>
+            <IconButton onClick={() => setSearchExpanded(!searchExpanded)}>
+              {searchExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
+          </Box>
+        )}
 
-        <Collapse in={searchExpanded}>
+        <Collapse in={formMode === 'edit' || searchExpanded}>
           <Collapse in={saveSuccess}>
             <Alert severity="success" sx={{ mb: 2 }}>
               Search saved successfully!

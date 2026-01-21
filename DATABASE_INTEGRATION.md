@@ -6,6 +6,8 @@ This guide explains how to integrate the DynamicSearch component with a database
 
 ### SavedSearch Table
 
+#### PostgreSQL / MySQL
+
 ```sql
 CREATE TABLE saved_searches (
   id VARCHAR(255) PRIMARY KEY,
@@ -21,6 +23,224 @@ CREATE TABLE saved_searches (
   INDEX idx_context (context),
   INDEX idx_visibility (visibility)
 );
+```
+
+#### SQL Server
+
+```sql
+CREATE TABLE saved_searches (
+  id VARCHAR(255) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description NVARCHAR(MAX),
+  params NVARCHAR(MAX) NOT NULL, -- JSON stored as NVARCHAR(MAX)
+  created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+  visibility VARCHAR(20) NOT NULL,
+  created_by VARCHAR(255) NOT NULL,
+  context VARCHAR(100),
+
+  CONSTRAINT CHK_visibility CHECK (visibility IN ('user', 'global'))
+);
+
+-- Create indexes
+CREATE INDEX idx_created_by ON saved_searches(created_by);
+CREATE INDEX idx_context ON saved_searches(context);
+CREATE INDEX idx_visibility ON saved_searches(visibility);
+
+-- Optional: Create a composite index for common query patterns
+CREATE INDEX idx_visibility_context ON saved_searches(visibility, context);
+```
+
+**SQL Server Notes:**
+- Uses `NVARCHAR(MAX)` for storing JSON data (SQL Server doesn't have native JSON type before 2016)
+- Uses `DATETIME2` instead of `TIMESTAMP` (more precise and recommended)
+- Uses `GETDATE()` instead of `CURRENT_TIMESTAMP`
+- Constraint syntax is slightly different (`CONSTRAINT CHK_name CHECK (...)`)
+- If using SQL Server 2016+, you can validate JSON with: `CONSTRAINT CHK_params CHECK (ISJSON(params) = 1)`
+
+### SQL Server with Tedious/mssql Package
+
+If you're using SQL Server with the `mssql` npm package:
+
+```typescript
+import sql from 'mssql';
+
+// Database configuration
+const config = {
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  server: process.env.DB_SERVER,
+  database: process.env.DB_NAME,
+  options: {
+    encrypt: true, // For Azure SQL
+    trustServerCertificate: false
+  }
+};
+
+// Fetch saved searches
+export async function getSavedSearches(userId: string, context?: string, allowCrossContext = false) {
+  try {
+    const pool = await sql.connect(config);
+
+    let query = `
+      SELECT * FROM saved_searches
+      WHERE (visibility = 'global' OR (created_by = @userId AND visibility = 'user'))
+    `;
+
+    if (context && !allowCrossContext) {
+      query += ` AND context = @context`;
+    }
+
+    query += ` ORDER BY created_at DESC`;
+
+    const request = pool.request();
+    request.input('userId', sql.VarChar(255), userId);
+
+    if (context && !allowCrossContext) {
+      request.input('context', sql.VarChar(100), context);
+    }
+
+    const result = await request.query(query);
+
+    // Parse JSON params
+    return result.recordset.map(row => ({
+      ...row,
+      params: JSON.parse(row.params)
+    }));
+  } catch (error) {
+    console.error('Database error:', error);
+    throw error;
+  }
+}
+
+// Create saved search
+export async function createSavedSearch(search: {
+  id: string;
+  name: string;
+  description?: string;
+  params: Record<string, any>;
+  visibility: 'user' | 'global';
+  createdBy: string;
+  context?: string;
+}) {
+  try {
+    const pool = await sql.connect(config);
+
+    const query = `
+      INSERT INTO saved_searches (id, name, description, params, visibility, created_by, context)
+      VALUES (@id, @name, @description, @params, @visibility, @createdBy, @context)
+    `;
+
+    const request = pool.request();
+    request.input('id', sql.VarChar(255), search.id);
+    request.input('name', sql.VarChar(255), search.name);
+    request.input('description', sql.NVarChar(sql.MAX), search.description || null);
+    request.input('params', sql.NVarChar(sql.MAX), JSON.stringify(search.params));
+    request.input('visibility', sql.VarChar(20), search.visibility);
+    request.input('createdBy', sql.VarChar(255), search.createdBy);
+    request.input('context', sql.VarChar(100), search.context || null);
+
+    await request.query(query);
+
+    return search;
+  } catch (error) {
+    console.error('Database error:', error);
+    throw error;
+  }
+}
+
+// Delete saved search
+export async function deleteSavedSearch(searchId: string, userId: string, isAdmin: boolean) {
+  try {
+    const pool = await sql.connect(config);
+
+    // First check ownership
+    const checkQuery = `SELECT created_by FROM saved_searches WHERE id = @searchId`;
+    const checkRequest = pool.request();
+    checkRequest.input('searchId', sql.VarChar(255), searchId);
+    const checkResult = await checkRequest.query(checkQuery);
+
+    if (checkResult.recordset.length === 0) {
+      throw new Error('Search not found');
+    }
+
+    const createdBy = checkResult.recordset[0].created_by;
+
+    if (createdBy !== userId && !isAdmin) {
+      throw new Error('Unauthorized');
+    }
+
+    // Delete the search
+    const deleteQuery = `DELETE FROM saved_searches WHERE id = @searchId`;
+    const deleteRequest = pool.request();
+    deleteRequest.input('searchId', sql.VarChar(255), searchId);
+    await deleteRequest.query(deleteQuery);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Database error:', error);
+    throw error;
+  }
+}
+
+// Update saved search (rename/change visibility)
+export async function updateSavedSearch(
+  searchId: string,
+  userId: string,
+  isAdmin: boolean,
+  updates: { name?: string; visibility?: 'user' | 'global' }
+) {
+  try {
+    const pool = await sql.connect(config);
+
+    // Check ownership
+    const checkQuery = `SELECT created_by FROM saved_searches WHERE id = @searchId`;
+    const checkRequest = pool.request();
+    checkRequest.input('searchId', sql.VarChar(255), searchId);
+    const checkResult = await checkRequest.query(checkQuery);
+
+    if (checkResult.recordset.length === 0) {
+      throw new Error('Search not found');
+    }
+
+    const createdBy = checkResult.recordset[0].created_by;
+
+    if (createdBy !== userId && !isAdmin) {
+      throw new Error('Unauthorized');
+    }
+
+    // Build update query
+    const updateFields: string[] = [];
+    const request = pool.request();
+    request.input('searchId', sql.VarChar(255), searchId);
+
+    if (updates.name) {
+      updateFields.push('name = @name');
+      request.input('name', sql.VarChar(255), updates.name);
+    }
+
+    if (updates.visibility) {
+      updateFields.push('visibility = @visibility');
+      request.input('visibility', sql.VarChar(20), updates.visibility);
+    }
+
+    if (updateFields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    const updateQuery = `
+      UPDATE saved_searches
+      SET ${updateFields.join(', ')}
+      WHERE id = @searchId
+    `;
+
+    await request.query(updateQuery);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Database error:', error);
+    throw error;
+  }
+}
 ```
 
 ### Prisma Schema

@@ -39,6 +39,7 @@ interface ModalSelectFieldProps {
   placeholder?: string;
   helperText?: string;
   required?: boolean;
+  disabled?: boolean;
   tooltip?: string;
   allowMultiple?: boolean;
   error?: string;
@@ -56,6 +57,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
   placeholder,
   helperText,
   required,
+  disabled = false,
   tooltip,
   allowMultiple = false,
   error,
@@ -215,7 +217,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
         helperText={error || helperText}
         required={required}
         variant="outlined"
-        disabled
+        disabled={disabled}
         error={!!error}
         slotProps={{
           input: {
@@ -230,6 +232,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
           color="primary"
           onClick={handleOpenModal}
           size="small"
+          disabled={disabled}
         >
           Select
         </Button>
@@ -240,6 +243,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
             onClick={handleClear}
             size="small"
             startIcon={<ClearIcon />}
+            disabled={disabled}
           >
             Clear
           </Button>
