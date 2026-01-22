@@ -1,12 +1,14 @@
 {
-  "name": "dynamic-search-app",
+  "name": "commonfields",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -34,6 +36,24 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "^15.1.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "storybook": "^10.2.0",
+    "@storybook/nextjs-vite": "^10.2.0",
+    "@chromatic-com/storybook": "^5.0.0",
+    "@storybook/addon-vitest": "^10.2.0",
+    "@storybook/addon-a11y": "^10.2.0",
+    "@storybook/addon-docs": "^10.2.0",
+    "@storybook/addon-onboarding": "^10.2.0",
+    "vite": "^7.3.1",
+    "eslint-plugin-storybook": "^10.2.0",
+    "vitest": "^4.0.17",
+    "playwright": "^1.57.0",
+    "@vitest/browser-playwright": "^4.0.17",
+    "@vitest/coverage-v8": "^4.0.17"
+  },
+  "eslintConfig": {
+    "extends": [
+      "plugin:storybook/recommended"
+    ]
   }
 }

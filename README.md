@@ -1,6 +1,6 @@
-# Dynamic Search Component for Next.js
+# CommonFields - Universal Form & Search Components for Next.js
 
-A flexible, reusable search component built with Next.js and Material UI that supports unlimited fields, multiple input types, API-driven data fetching, and saved search functionality.
+A flexible, reusable collection of form and search components built with Next.js and Material UI. Features standalone field components and a powerful dynamic search interface that supports unlimited fields, multiple input types, API-driven data fetching, and saved search functionality.
 
 ## Features
 
