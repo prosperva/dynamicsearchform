@@ -48,7 +48,7 @@ import {
   Delete as DeleteIcon,
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
-import { DynamicSearchProps, SavedSearch, SearchVisibility, ModalPosition, ViewMode, FormMode } from './types';
+import { DynamicSearchProps, SavedSearch, SearchVisibility, ModalPosition, ViewMode, FormMode, ReportOption } from './types';
 import { FieldRenderer } from './FieldRenderer';
 import { SearchableDropdown } from './SearchableDropdown';
 
@@ -150,6 +150,7 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
   defaultViewMode = 'grid',
   availableViewModes = ['grid', 'report'],
   onViewModeChange,
+  reportOptions,
   customFields,
   formMode = 'search',
 }) => {
@@ -641,10 +642,17 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
                 label="Output Format"
                 value={selectedViewMode}
                 onChange={(newValue) => handleViewModeChange(newValue as ViewMode)}
-                options={availableViewModes.map(mode => ({
-                  label: mode === 'grid' ? 'Search Results' : 'Report',
-                  value: mode,
-                }))}
+                options={
+                  reportOptions
+                    ? reportOptions.map(option => ({
+                        label: option.label,
+                        value: option.id,
+                      }))
+                    : availableViewModes.map(mode => ({
+                        label: mode === 'grid' ? 'Search Results' : 'Report',
+                        value: mode,
+                      }))
+                }
               />
             </Box>
           )}

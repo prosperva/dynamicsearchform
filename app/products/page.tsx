@@ -44,7 +44,7 @@ import {
 import { LockService } from '@/lib/lockService';
 import { DataGrid, GridColDef, GridPaginationModel, GridSortModel, GridRowSelectionModel } from '@mui/x-data-grid';
 import dayjs from 'dayjs';
-import { DynamicSearch, FieldConfig, SavedSearch, ViewMode, ReportFormat } from '@/components/DynamicSearch';
+import { DynamicSearch, FieldConfig, SavedSearch, ViewMode, ReportFormat, ReportOption } from '@/components/DynamicSearch';
 import { useGridManagement } from '@/hooks/useGridManagement';
 import { useProducts, useAllProducts, usePrefetchProduct, type ProductsQueryParams } from '@/hooks/useProducts';
 
@@ -125,6 +125,53 @@ export default function ProductsPage() {
   const enableEditView = true;
   const currentUser = 'demo_user@example.com'; // In production, get from auth context
 
+  // Report options for the view mode dropdown
+  // Each report type can have different export formats available
+  const reportOptions: ReportOption[] = [
+    {
+      id: 'grid',
+      label: 'Search Results',
+      icon: 'grid',
+      fetchAll: false,
+      // No exports for grid view - use report views for exports
+    },
+    {
+      id: 'report',
+      label: 'Standard Report',
+      icon: 'report',
+      fetchAll: true,
+      exportFormats: [
+        { format: 'pdf', label: 'Download PDF', icon: 'pdf' },
+        { format: 'excel', label: 'Download Excel', icon: 'excel' },
+        { format: 'csv', label: 'Download CSV', icon: 'csv' },
+      ],
+    },
+    {
+      id: 'product-types-report',
+      label: 'Product Types Report',
+      icon: 'chart',
+      fetchAll: true,
+      description: 'Report grouped by product categories',
+      exportFormats: [
+        { format: 'pdf', label: 'Download PDF', icon: 'pdf' },
+        { format: 'excel', label: 'Download Excel', icon: 'excel' },
+        { format: 'zip', label: 'Download ZIP Archive', icon: 'zip' },
+      ],
+    },
+    {
+      id: 'test-data-report',
+      label: 'Test Data Report',
+      icon: 'detailed',
+      fetchAll: true,
+      description: 'Report with test/sample data for validation',
+      exportFormats: [
+        { format: 'csv', label: 'Download CSV', icon: 'csv' },
+        { format: 'json', label: 'Download JSON', icon: 'json' },
+        { format: 'html', label: 'View as HTML', icon: 'html' },
+      ],
+    },
+  ];
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Grid management for state persistence
@@ -184,13 +231,17 @@ export default function ProductsPage() {
   // Fetch products using React Query (paginated for grid view)
   const { data, isLoading, isError, error, refetch, isFetching } = useProducts(queryParams);
 
-  // Fetch ALL products for report view (only enabled when in report mode and has searched)
+  // Check if current view mode requires all data (fetchAll: true)
+  const currentReportOption = reportOptions.find(opt => opt.id === viewMode);
+  const needsAllData = currentReportOption?.fetchAll === true;
+
+  // Fetch ALL products for report view (only enabled when view needs all data and has searched)
   const {
     data: reportData,
     isLoading: isReportLoading,
     isFetching: isReportFetching,
   } = useAllProducts(reportQueryParams, {
-    enabled: viewMode === 'report' && hasSearched,
+    enabled: needsAllData && hasSearched,
   });
 
   // Prefetch hook for hover
@@ -427,6 +478,221 @@ export default function ProductsPage() {
     console.log('Changed Search ID:', searchId, 'visibility to:', visibility);
   };
 
+  // Handle export/download for the current report type
+  const handleExport = async (format: ReportFormat) => {
+    console.log('Export requested:', format, 'for report:', viewMode);
+
+    // Handle standard formats
+    if (format === 'pdf' || format === 'excel' || format === 'csv') {
+      await handleDownloadReport(format);
+    } else if (format === 'zip') {
+      // Example: Handle ZIP export
+      console.log('ZIP export requested - implement custom logic here');
+      alert('ZIP export not yet implemented. This would bundle all data into a ZIP archive.');
+    } else if (format === 'json') {
+      // Example: Handle JSON export
+      const searchResults = reportData?.data || [];
+      const jsonContent = JSON.stringify(searchResults, null, 2);
+      const blob = new Blob([jsonContent], { type: 'application/json' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `product-report-${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (format === 'html') {
+      // Generate HTML preview and open in new window
+      const searchResults = reportData?.data || [];
+      const activeColumns = selectedColumns.filter((col) => col.selected);
+      const timestamp = new Date().toLocaleString();
+
+      // Helper function to format cell content
+      const formatCellContent = (colId: string, value: any): string => {
+        if (colId === 'price') {
+          return '<span class="price">$' + (value?.toFixed(2) || '0.00') + '</span>';
+        } else if (colId === 'createdAt') {
+          return dayjs(value).format('MM/DD/YYYY');
+        } else if (colId === 'status') {
+          const statusClass = value === 'active' ? 'chip-active' : value === 'inactive' ? 'chip-inactive' : 'chip-discontinued';
+          return '<span class="chip ' + statusClass + '">' + value + '</span>';
+        } else if (colId === 'category') {
+          return '<span class="chip chip-category">' + value + '</span>';
+        }
+        return String(value ?? '');
+      };
+
+      // Pre-generate table headers
+      const tableHeaders = activeColumns.map(col => {
+        const alignClass = col.id === 'price' || col.id === 'stock' ? 'right' : '';
+        return '<th class="' + alignClass + '">' + col.label + '</th>';
+      }).join('');
+
+      // Pre-generate table rows
+      const tableRows = searchResults.map((product: any) => {
+        const cells = activeColumns.map(col => {
+          const value = product[col.id];
+          const alignClass = col.id === 'price' || col.id === 'stock' ? 'right' : '';
+          const cellContent = formatCellContent(col.id, value);
+          return '<td class="' + alignClass + '">' + cellContent + '</td>';
+        }).join('');
+        return '<tr>' + cells + '</tr>';
+      }).join('\n          ');
+
+      const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${currentReportOption?.label || 'Report'} - Preview</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .header {
+      background: linear-gradient(135deg, #3f51b5, #1a237e);
+      color: white;
+      padding: 24px;
+      border-radius: 8px 8px 0 0;
+    }
+    .header h1 { font-size: 24px; margin-bottom: 8px; }
+    .header .meta { font-size: 14px; opacity: 0.9; }
+    .content { padding: 24px; }
+    .stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .stat {
+      background: #e3f2fd;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th {
+      background: #3f51b5;
+      color: white;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+    }
+    th.right { text-align: right; }
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    td.right { text-align: right; }
+    tr:nth-child(even) { background: #fafafa; }
+    tr:hover { background: #e8f4fd; }
+    .chip {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .chip-active { background: #e8f5e9; color: #2e7d32; }
+    .chip-inactive { background: #fff3e0; color: #e65100; }
+    .chip-discontinued { background: #ffebee; color: #c62828; }
+    .chip-category { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+    .price { font-weight: 600; color: #1565c0; }
+    .footer {
+      padding: 16px 24px;
+      background: #fafafa;
+      border-top: 1px solid #e0e0e0;
+      border-radius: 0 0 8px 8px;
+      font-size: 12px;
+      color: #666;
+      display: flex;
+      justify-content: space-between;
+    }
+    .actions {
+      padding: 16px 24px;
+      background: #fafafa;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      gap: 12px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .btn-primary { background: #3f51b5; color: white; }
+    .btn-primary:hover { background: #303f9f; }
+    .btn-secondary { background: #e0e0e0; color: #333; }
+    .btn-secondary:hover { background: #bdbdbd; }
+    @media print {
+      body { background: white; padding: 0; }
+      .container { box-shadow: none; }
+      .actions { display: none; }
+      .header { background: #3f51b5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      th { background: #3f51b5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${currentReportOption?.label || 'Product Report'}</h1>
+      <div class="meta">Generated: ${timestamp}</div>
+      ${currentReportOption?.description ? '<div class="meta">' + currentReportOption.description + '</div>' : ''}
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="window.print()">Print Report</button>
+      <button class="btn btn-secondary" onclick="window.close()">Close Preview</button>
+    </div>
+    <div class="content">
+      <div class="stats">
+        <div class="stat">Total Results: ${searchResults.length}</div>
+        <div class="stat">Columns: ${activeColumns.length}</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            ${tableHeaders}
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+    </div>
+    <div class="footer">
+      <span>Product Report</span>
+      <span>Page 1 of 1</span>
+    </div>
+  </div>
+</body>
+</html>`;
+
+      // Open in new window
+      const previewWindow = window.open('', '_blank', 'width=1200,height=800');
+      if (previewWindow) {
+        previewWindow.document.write(htmlContent);
+        previewWindow.document.close();
+      } else {
+        alert('Could not open preview window. Please allow popups for this site.');
+      }
+    }
+  };
+
   // Column selection handlers
   const handleToggleColumn = (columnId: string) => {
     setSelectedColumns((prev) =>
@@ -619,11 +885,24 @@ export default function ProductsPage() {
     </Paper>
   );
 
+  // Get icon component for export format
+  const getExportIcon = (iconType?: string) => {
+    switch (iconType) {
+      case 'pdf': return <PdfIcon fontSize="small" />;
+      case 'excel': return <ExcelIcon fontSize="small" />;
+      case 'csv': return <CsvIcon fontSize="small" />;
+      default: return <DownloadIcon fontSize="small" />;
+    }
+  };
+
   // Render report view
   const renderReportView = () => {
     const activeColumns = selectedColumns.filter((col) => col.selected);
     // Use report data (all rows) for report view
     const searchResults = reportData?.data || [];
+
+    // Get export formats for current report type
+    const currentExportFormats = currentReportOption?.exportFormats || [];
 
     // Show loading state for report data
     if (isReportLoading || isReportFetching) {
@@ -637,45 +916,56 @@ export default function ProductsPage() {
 
     return (
       <Box>
+        {/* Report Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Product Report ({reportData?.total || searchResults.length} results - all rows)
-          </Typography>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              {currentReportOption?.label || 'Report'} ({reportData?.total || searchResults.length} results)
+            </Typography>
+            {currentReportOption?.description && (
+              <Typography variant="body2" color="text.secondary">
+                {currentReportOption.description}
+              </Typography>
+            )}
+          </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button variant="outlined" onClick={() => setColumnSelectorOpen(true)}>
               Select Columns
             </Button>
-            {enableExport && (
+            {enableExport && currentExportFormats.length > 0 && (
               <Button
                 variant="contained"
                 startIcon={<DownloadIcon />}
                 onClick={(e) => setDownloadMenuAnchor(e.currentTarget)}
               >
-                Download Report
+                Export
               </Button>
             )}
           </Box>
-          {enableExport && (
-            <Menu
-              anchorEl={downloadMenuAnchor}
-              open={Boolean(downloadMenuAnchor)}
-              onClose={() => setDownloadMenuAnchor(null)}
-            >
-              <MenuItem onClick={() => handleDownloadReport('pdf')}>
-                <ListItemIcon><PdfIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Download as PDF</ListItemText>
-              </MenuItem>
-              <MenuItem onClick={() => handleDownloadReport('excel')}>
-                <ListItemIcon><ExcelIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Download as Excel</ListItemText>
-              </MenuItem>
-              <MenuItem onClick={() => handleDownloadReport('csv')}>
-                <ListItemIcon><CsvIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Download as CSV</ListItemText>
-              </MenuItem>
-            </Menu>
-          )}
         </Box>
+
+        {/* Export Menu - dynamic based on report's export formats */}
+        {enableExport && currentExportFormats.length > 0 && (
+          <Menu
+            anchorEl={downloadMenuAnchor}
+            open={Boolean(downloadMenuAnchor)}
+            onClose={() => setDownloadMenuAnchor(null)}
+          >
+            {currentExportFormats.map((exportOption) => (
+              <MenuItem
+                key={exportOption.format}
+                onClick={() => {
+                  setDownloadMenuAnchor(null);
+                  handleExport(exportOption.format);
+                }}
+                disabled={exportOption.enabled === false}
+              >
+                <ListItemIcon>{getExportIcon(exportOption.icon)}</ListItemIcon>
+                <ListItemText>{exportOption.label || `Download as ${exportOption.format.toUpperCase()}`}</ListItemText>
+              </MenuItem>
+            ))}
+          </Menu>
+        )}
         <TableContainer component={Paper} variant="outlined">
           <Table sx={{ minWidth: 650 }} aria-label="product report table">
             <TableHead>
@@ -754,8 +1044,8 @@ export default function ProductsPage() {
       );
     }
 
-    // For report view, check reportData; for grid view, check data
-    const currentData = viewMode === 'report' ? reportData : data;
+    // For views needing all data, check reportData; for grid view, check data
+    const currentData = needsAllData ? reportData : data;
     if (currentData?.data.length === 0) {
       return (
         <Alert severity="warning">
@@ -764,14 +1054,14 @@ export default function ProductsPage() {
       );
     }
 
-    switch (viewMode) {
-      case 'grid':
-        return renderGridView();
-      case 'report':
-        return renderReportView();
-      default:
-        return renderGridView();
+    // Render based on view mode - grid for 'grid', report view for any fetchAll view
+    if (viewMode === 'grid') {
+      return renderGridView();
+    } else if (needsAllData) {
+      // All fetchAll view types use the report view renderer
+      return renderReportView();
     }
+    return renderGridView();
   };
 
   return (
@@ -827,6 +1117,7 @@ export default function ProductsPage() {
         enableViewMode={true}
         defaultViewMode={viewMode}
         onViewModeChange={setViewMode}
+        reportOptions={reportOptions}
         initialValues={state.filters}
       />
 
@@ -836,18 +1127,18 @@ export default function ProductsPage() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5">
               Search Results
-              {hasSearched && (viewMode === 'report' ? reportData : data) && (
+              {hasSearched && (needsAllData ? reportData : data) && (
                 <Chip
-                  label={`${(viewMode === 'report' ? reportData?.total : data?.total) || 0} ${((viewMode === 'report' ? reportData?.total : data?.total) || 0) === 1 ? 'result' : 'results'}`}
+                  label={`${(needsAllData ? reportData?.total : data?.total) || 0} ${((needsAllData ? reportData?.total : data?.total) || 0) === 1 ? 'result' : 'results'}`}
                   size="small"
                   color="primary"
                   sx={{ ml: 2 }}
                 />
               )}
             </Typography>
-            {hasSearched && (viewMode === 'report' ? reportData : data) && ((viewMode === 'report' ? reportData?.data : data?.data)?.length ?? 0) > 0 && (
+            {hasSearched && (needsAllData ? reportData : data) && ((needsAllData ? reportData?.data : data?.data)?.length ?? 0) > 0 && (
               <Chip
-                label={`View: ${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`}
+                label={`View: ${currentReportOption?.label || viewMode}`}
                 color="secondary"
                 variant="outlined"
               />

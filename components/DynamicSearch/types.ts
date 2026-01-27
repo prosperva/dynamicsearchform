@@ -40,8 +40,36 @@ export type ColumnLayout = 'auto' | 1 | 2 | 3 | 4;
 
 export type ModalPosition = 'center' | 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
-export type ViewMode = 'grid' | 'report';
-export type ReportFormat = 'pdf' | 'excel' | 'csv';
+export type ViewMode = 'grid' | 'report' | string; // 'grid' for data grid, 'report' for default report, or custom string for custom views
+export type ReportFormat = 'pdf' | 'excel' | 'csv' | 'zip' | 'html' | 'json';
+
+// Export format configuration for a report
+export interface ExportFormat {
+  format: ReportFormat; // The export format type
+  label?: string; // Custom label (default: "Download as PDF", etc.)
+  icon?: 'pdf' | 'excel' | 'csv' | 'zip' | 'html' | 'json' | 'download'; // Icon to display
+  enabled?: boolean; // Whether this export is enabled (default: true)
+}
+
+// Configuration for view/report options in the dropdown
+export interface ReportOption {
+  id: string; // Unique identifier (used as ViewMode value)
+  label: string; // Display label in dropdown
+  description?: string; // Optional description/tooltip
+  icon?: 'grid' | 'report' | 'chart' | 'summary' | 'detailed' | 'table'; // Icon for the report type
+  fetchAll?: boolean; // Whether this report needs all data (no pagination)
+  exportFormats?: ExportFormat[]; // Available export formats for this report (if any)
+}
+
+// Legacy type for backward compatibility - maps to download action
+export interface LegacyReportOption {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: 'report' | 'pdf' | 'excel' | 'csv' | 'zip' | 'download' | 'chart' | 'summary' | 'detailed';
+  type: 'view' | 'download';
+  fetchAll?: boolean;
+}
 
 
 export interface SavedSearch {
@@ -78,8 +106,10 @@ export interface DynamicSearchProps {
   modalPosition?: ModalPosition; // Position of all dialogs (default: 'center')
   enableViewMode?: boolean; // Enable view mode selector (default: false)
   defaultViewMode?: ViewMode; // Default view mode (default: 'grid')
-  availableViewModes?: ViewMode[]; // Available view modes (default: all)
+  availableViewModes?: ViewMode[]; // Available view modes (default: all) - deprecated, use reportOptions instead
   onViewModeChange?: (viewMode: ViewMode) => void; // Callback when view mode changes
+  reportOptions?: ReportOption[]; // Custom report/view options for the dropdown
+  onExport?: (reportId: string, format: ReportFormat, params: Record<string, any>) => void; // Callback when user wants to export/download
   customFields?: (values: Record<string, any>, onChange: (name: string, value: any) => void) => React.ReactNode; // Custom fields render function
   formMode?: FormMode; // Form mode: 'search' or 'edit' (default: 'search')
 }
