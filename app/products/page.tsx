@@ -46,7 +46,7 @@ import { DataGrid, GridColDef, GridPaginationModel, GridSortModel, GridRowSelect
 import dayjs from 'dayjs';
 import { DynamicSearch, FieldConfig, SavedSearch, ViewMode, ReportFormat } from '@/components/DynamicSearch';
 import { useGridManagement } from '@/hooks/useGridManagement';
-import { useProducts, usePrefetchProduct, type ProductsQueryParams } from '@/hooks/useProducts';
+import { useProducts, useAllProducts, usePrefetchProduct, type ProductsQueryParams } from '@/hooks/useProducts';
 
 // Search field configurations - similar to app/page.tsx
 const searchFields: FieldConfig[] = [
@@ -169,8 +169,29 @@ export default function ProductsPage() {
     dateTo: state.filters.dateTo,
   }), [state.page, state.pageSize, state.sortModel, state.filters]);
 
-  // Fetch products using React Query
+  // Build filter-only params for report view (no pagination)
+  const reportQueryParams = useMemo(() => ({
+    sortField: state.sortModel[0]?.field,
+    sortOrder: state.sortModel[0]?.sort,
+    search: state.filters.search,
+    category: state.filters.category,
+    status: state.filters.status,
+    priceRange: state.filters.priceRange,
+    dateFrom: state.filters.dateFrom,
+    dateTo: state.filters.dateTo,
+  }), [state.sortModel, state.filters]);
+
+  // Fetch products using React Query (paginated for grid view)
   const { data, isLoading, isError, error, refetch, isFetching } = useProducts(queryParams);
+
+  // Fetch ALL products for report view (only enabled when in report mode and has searched)
+  const {
+    data: reportData,
+    isLoading: isReportLoading,
+    isFetching: isReportFetching,
+  } = useAllProducts(reportQueryParams, {
+    enabled: viewMode === 'report' && hasSearched,
+  });
 
   // Prefetch hook for hover
   const prefetchProduct = usePrefetchProduct();
@@ -427,7 +448,8 @@ export default function ProductsPage() {
   const handleDownloadReport = async (format: ReportFormat) => {
     setDownloadMenuAnchor(null);
 
-    const searchResults = data?.data || [];
+    // Use report data (all rows) for exports
+    const searchResults = reportData?.data || [];
     const timestamp = new Date().toISOString().split('T')[0];
     const fileName = `product-report-${timestamp}`;
 
@@ -600,13 +622,24 @@ export default function ProductsPage() {
   // Render report view
   const renderReportView = () => {
     const activeColumns = selectedColumns.filter((col) => col.selected);
-    const searchResults = data?.data || [];
+    // Use report data (all rows) for report view
+    const searchResults = reportData?.data || [];
+
+    // Show loading state for report data
+    if (isReportLoading || isReportFetching) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+          <CircularProgress />
+          <Typography sx={{ ml: 2 }}>Loading all data for report...</Typography>
+        </Box>
+      );
+    }
 
     return (
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Product Report ({searchResults.length} results)
+            Product Report ({reportData?.total || searchResults.length} results - all rows)
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button variant="outlined" onClick={() => setColumnSelectorOpen(true)}>
@@ -721,7 +754,9 @@ export default function ProductsPage() {
       );
     }
 
-    if (data?.data.length === 0) {
+    // For report view, check reportData; for grid view, check data
+    const currentData = viewMode === 'report' ? reportData : data;
+    if (currentData?.data.length === 0) {
       return (
         <Alert severity="warning">
           No products found matching your search criteria. Try adjusting your filters.
@@ -801,16 +836,16 @@ export default function ProductsPage() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h5">
               Search Results
-              {hasSearched && data && (
+              {hasSearched && (viewMode === 'report' ? reportData : data) && (
                 <Chip
-                  label={`${data.total} ${data.total === 1 ? 'result' : 'results'}`}
+                  label={`${(viewMode === 'report' ? reportData?.total : data?.total) || 0} ${((viewMode === 'report' ? reportData?.total : data?.total) || 0) === 1 ? 'result' : 'results'}`}
                   size="small"
                   color="primary"
                   sx={{ ml: 2 }}
                 />
               )}
             </Typography>
-            {hasSearched && data && data.data.length > 0 && (
+            {hasSearched && (viewMode === 'report' ? reportData : data) && ((viewMode === 'report' ? reportData?.data : data?.data)?.length ?? 0) > 0 && (
               <Chip
                 label={`View: ${viewMode.charAt(0).toUpperCase() + viewMode.slice(1)}`}
                 color="secondary"

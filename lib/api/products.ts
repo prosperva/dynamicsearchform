@@ -22,6 +22,7 @@ export interface ProductsQueryParams {
   priceRange?: string;
   dateFrom?: string;
   dateTo?: string;
+  fetchAll?: boolean; // When true, returns all rows without pagination
 }
 
 export interface ProductsResponse {

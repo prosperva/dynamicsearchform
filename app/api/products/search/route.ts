@@ -13,6 +13,7 @@ interface SearchParams {
   priceRange?: string;
   dateFrom?: string;
   dateTo?: string;
+  fetchAll?: boolean; // When true, returns all rows without pagination
   // Support for additional dynamic filters
   [key: string]: any;
 }
@@ -99,6 +100,23 @@ export async function POST(request: NextRequest) {
 
     // Calculate pagination
     const total = filtered.length;
+    const fetchAll = body.fetchAll === true;
+
+    // If fetchAll is true, return all rows without pagination
+    if (fetchAll) {
+      // Simulate network delay for realistic behavior
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      return NextResponse.json({
+        data: filtered,
+        total,
+        page: 0,
+        pageSize: total,
+        totalPages: 1,
+      });
+    }
+
+    // Otherwise, apply pagination
     const totalPages = Math.ceil(total / pageSize);
     const start = page * pageSize;
     const paginated = filtered.slice(start, start + pageSize);

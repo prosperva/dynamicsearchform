@@ -19,6 +19,7 @@ export const productKeys = {
   all: ['products'] as const,
   lists: () => [...productKeys.all, 'list'] as const,
   list: (params: ProductsQueryParams) => [...productKeys.lists(), params] as const,
+  allRows: (params: Omit<ProductsQueryParams, 'page' | 'pageSize' | 'fetchAll'>) => [...productKeys.lists(), 'all', params] as const,
   details: () => [...productKeys.all, 'detail'] as const,
   detail: (id: number) => [...productKeys.details(), id] as const,
 };
@@ -29,6 +30,25 @@ export function useProducts(params: ProductsQueryParams) {
     queryKey: productKeys.list(params),
     queryFn: () => fetchProducts(params),
     placeholderData: keepPreviousData, // Keep showing previous data while loading new page
+    staleTime: 1 * 60 * 1000, // 1 minute
+  });
+}
+
+// Hook for fetching ALL products (no pagination) - for report view and exports
+export function useAllProducts(
+  params: Omit<ProductsQueryParams, 'page' | 'pageSize' | 'fetchAll'>,
+  options?: { enabled?: boolean }
+) {
+  return useQuery<ProductsResponse, Error>({
+    queryKey: productKeys.allRows(params),
+    queryFn: () =>
+      fetchProducts({
+        ...params,
+        page: 0,
+        pageSize: 0, // Ignored when fetchAll is true
+        fetchAll: true, // Request all rows without pagination
+      }),
+    enabled: options?.enabled ?? true,
     staleTime: 1 * 60 * 1000, // 1 minute
   });
 }
