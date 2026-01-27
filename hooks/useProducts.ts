@@ -3,11 +3,13 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   fetchProducts,
+  fetchAllProducts,
   fetchProduct,
   createProduct,
   updateProduct,
   deleteProduct,
   type ProductsQueryParams,
+  type AllProductsQueryParams,
   type CreateProductInput,
   type UpdateProductInput,
   type Product,
@@ -19,7 +21,7 @@ export const productKeys = {
   all: ['products'] as const,
   lists: () => [...productKeys.all, 'list'] as const,
   list: (params: ProductsQueryParams) => [...productKeys.lists(), params] as const,
-  allRows: (params: Omit<ProductsQueryParams, 'page' | 'pageSize' | 'fetchAll'>) => [...productKeys.lists(), 'all', params] as const,
+  allRows: (params: AllProductsQueryParams) => [...productKeys.lists(), 'all', params] as const,
   details: () => [...productKeys.all, 'detail'] as const,
   detail: (id: number) => [...productKeys.details(), id] as const,
 };
@@ -35,19 +37,14 @@ export function useProducts(params: ProductsQueryParams) {
 }
 
 // Hook for fetching ALL products (no pagination) - for report view and exports
+// Uses separate /api/products/all endpoint
 export function useAllProducts(
-  params: Omit<ProductsQueryParams, 'page' | 'pageSize' | 'fetchAll'>,
+  params: AllProductsQueryParams,
   options?: { enabled?: boolean }
 ) {
   return useQuery<ProductsResponse, Error>({
     queryKey: productKeys.allRows(params),
-    queryFn: () =>
-      fetchProducts({
-        ...params,
-        page: 0,
-        pageSize: 0, // Ignored when fetchAll is true
-        fetchAll: true, // Request all rows without pagination
-      }),
+    queryFn: () => fetchAllProducts(params),
     enabled: options?.enabled ?? true,
     staleTime: 1 * 60 * 1000, // 1 minute
   });
@@ -120,4 +117,4 @@ export function usePrefetchProduct() {
 }
 
 // Re-export types for convenience
-export type { Product, ProductsQueryParams, ProductsResponse, CreateProductInput, UpdateProductInput };
+export type { Product, ProductsQueryParams, AllProductsQueryParams, ProductsResponse, CreateProductInput, UpdateProductInput };

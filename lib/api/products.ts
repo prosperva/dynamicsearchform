@@ -22,8 +22,10 @@ export interface ProductsQueryParams {
   priceRange?: string;
   dateFrom?: string;
   dateTo?: string;
-  fetchAll?: boolean; // When true, returns all rows without pagination
 }
+
+// Params for fetching all products (no pagination fields)
+export type AllProductsQueryParams = Omit<ProductsQueryParams, 'page' | 'pageSize'>;
 
 export interface ProductsResponse {
   data: Product[];
@@ -47,11 +49,12 @@ export interface UpdateProductInput extends Partial<CreateProductInput> {}
 // API client functions
 const API_BASE = '/api/products';
 
+// Paginated search - for grid view
 export async function fetchProducts(params: ProductsQueryParams): Promise<ProductsResponse> {
-  // Send search params as JSON body via POST
   const response = await fetch(`${API_BASE}/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // Include cookies for authentication
     body: JSON.stringify(params),
   });
 
@@ -62,8 +65,26 @@ export async function fetchProducts(params: ProductsQueryParams): Promise<Produc
   return response.json();
 }
 
+// Fetch ALL products without pagination - for reports and exports
+export async function fetchAllProducts(params: AllProductsQueryParams): Promise<ProductsResponse> {
+  const response = await fetch(`${API_BASE}/all`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // Include cookies for authentication
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch all products: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 export async function fetchProduct(id: number): Promise<Product> {
-  const response = await fetch(`${API_BASE}/${id}`);
+  const response = await fetch(`${API_BASE}/${id}`, {
+    credentials: 'include',
+  });
 
   if (!response.ok) {
     if (response.status === 404) {
@@ -79,6 +100,7 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
   const response = await fetch(API_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(input),
   });
 
@@ -94,6 +116,7 @@ export async function updateProduct(id: number, input: UpdateProductInput): Prom
   const response = await fetch(`${API_BASE}/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(input),
   });
 
@@ -108,6 +131,7 @@ export async function updateProduct(id: number, input: UpdateProductInput): Prom
 export async function deleteProduct(id: number): Promise<void> {
   const response = await fetch(`${API_BASE}/${id}`, {
     method: 'DELETE',
+    credentials: 'include',
   });
 
   if (!response.ok) {

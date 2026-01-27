@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { products } from '../route';
 
-// Interface for search request body
-interface SearchParams {
-  page: number;
-  pageSize: number;
+// Interface for all products request body (no pagination)
+interface AllProductsParams {
   sortField?: string;
   sortOrder?: 'asc' | 'desc';
   search?: string;
@@ -13,18 +11,13 @@ interface SearchParams {
   priceRange?: string;
   dateFrom?: string;
   dateTo?: string;
-  // Support for additional dynamic filters
   [key: string]: any;
 }
 
-// POST /api/products/search - Search products with JSON body
+// POST /api/products/all - Fetch all products without pagination (for reports/exports)
 export async function POST(request: NextRequest) {
   try {
-    const body: SearchParams = await request.json();
-
-    // Pagination with defaults
-    const page = body.page ?? 0;
-    const pageSize = body.pageSize ?? 25;
+    const body: AllProductsParams = await request.json();
 
     // Sorting with defaults
     const sortField = body.sortField || 'id';
@@ -97,21 +90,18 @@ export async function POST(request: NextRequest) {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
-    // Calculate pagination
     const total = filtered.length;
-    const totalPages = Math.ceil(total / pageSize);
-    const start = page * pageSize;
-    const paginated = filtered.slice(start, start + pageSize);
 
     // Simulate network delay for realistic behavior
     await new Promise((resolve) => setTimeout(resolve, 200));
 
+    // Return all rows without pagination
     return NextResponse.json({
-      data: paginated,
+      data: filtered,
       total,
-      page,
-      pageSize,
-      totalPages,
+      page: 0,
+      pageSize: total,
+      totalPages: 1,
     });
   } catch (error) {
     return NextResponse.json(
