@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -39,7 +39,9 @@ import {
   Visibility as ViewIcon,
   Add as AddIcon,
   Refresh as RefreshIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
+import { LockService } from '@/lib/lockService';
 import { DataGrid, GridColDef, GridPaginationModel, GridSortModel, GridRowSelectionModel } from '@mui/x-data-grid';
 import dayjs from 'dayjs';
 import { DynamicSearch, FieldConfig, SavedSearch, ViewMode, ReportFormat } from '@/components/DynamicSearch';
@@ -121,6 +123,7 @@ export default function ProductsPage() {
   // ========================================
   const enableExport = true;
   const enableEditView = true;
+  const currentUser = 'demo_user@example.com'; // In production, get from auth context
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -149,6 +152,9 @@ export default function ProductsPage() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
+  // Track locked rows: { rowId: { lockedBy: string, lockedAt: Date } }
+  const [lockedRows, setLockedRows] = useState<Record<number, { lockedBy: string; lockedAt: Date }>>({});
+
   // Build query params from grid state
   const queryParams: ProductsQueryParams = useMemo(() => ({
     page: state.page,
@@ -168,6 +174,31 @@ export default function ProductsPage() {
 
   // Prefetch hook for hover
   const prefetchProduct = usePrefetchProduct();
+
+  // Sync locks from database on mount and periodically
+  useEffect(() => {
+    const syncLocks = async () => {
+      const locks = await LockService.getTableLocks('products');
+      const lockMap: Record<number, { lockedBy: string; lockedAt: Date }> = {};
+
+      locks.forEach(lock => {
+        lockMap[Number(lock.rowId)] = {
+          lockedBy: lock.lockedBy,
+          lockedAt: new Date(lock.lockedAt)
+        };
+      });
+
+      setLockedRows(lockMap);
+    };
+
+    // Initial sync
+    syncLocks();
+
+    // Sync every 10 seconds
+    const interval = setInterval(syncLocks, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Grid columns definition
   const baseColumns: GridColDef[] = [
@@ -208,6 +239,33 @@ export default function ProductsPage() {
     },
   ];
 
+  // Handle edit with lock acquisition
+  const handleEditClick = async (row: any) => {
+    // Check if row is locked by another user
+    const lock = lockedRows[row.id];
+    if (lock && lock.lockedBy !== currentUser) {
+      alert(`This record is currently being edited by ${lock.lockedBy}.\nPlease try again later.`);
+      return;
+    }
+
+    // Try to acquire lock from database
+    const lockResult = await LockService.acquireLock('products', row.id.toString(), currentUser);
+
+    if (!lockResult.success) {
+      alert(`This record is currently being edited by ${lockResult.lockedBy}.\nPlease try again later.`);
+      return;
+    }
+
+    // Update local lock state
+    setLockedRows(prev => ({
+      ...prev,
+      [row.id]: { lockedBy: currentUser, lockedAt: new Date() }
+    }));
+
+    // Navigate to edit page
+    navigateTo(`/products/edit/${row.id}`);
+  };
+
   // Add actions column if enabled
   const columns: GridColDef[] = enableEditView
     ? [
@@ -215,36 +273,63 @@ export default function ProductsPage() {
         {
           field: 'actions',
           headerName: 'Actions',
-          width: 180,
+          width: 250,
           sortable: false,
           filterable: false,
-          renderCell: (params) => (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', height: '100%' }}>
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<ViewIcon />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleViewProduct(params.row);
-                }}
-              >
-                View
-              </Button>
-              <Button
-                size="small"
-                variant="contained"
-                startIcon={<EditIcon />}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigateTo(`/products/edit/${params.row.id}`);
-                }}
-                onMouseEnter={() => prefetchProduct(params.row.id)}
-              >
-                Edit
-              </Button>
-            </Box>
-          ),
+          renderCell: (params) => {
+            const lock = lockedRows[params.row.id];
+            const isLockedByOther = lock && lock.lockedBy !== currentUser;
+            const isLockedByMe = lock && lock.lockedBy === currentUser;
+
+            return (
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', height: '100%' }}>
+                {isLockedByOther && (
+                  <Chip
+                    icon={<LockIcon />}
+                    label={`Locked by ${lock.lockedBy.split('@')[0]}`}
+                    size="small"
+                    color="warning"
+                  />
+                )}
+                {isLockedByMe && (
+                  <Chip
+                    icon={<LockIcon />}
+                    label="Editing"
+                    size="small"
+                    color="info"
+                  />
+                )}
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ViewIcon />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewProduct(params.row);
+                  }}
+                >
+                  View
+                </Button>
+                <Tooltip title={isLockedByOther ? `Locked by ${lock.lockedBy}` : 'Edit product'}>
+                  <span>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<EditIcon />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditClick(params.row);
+                      }}
+                      onMouseEnter={() => prefetchProduct(params.row.id)}
+                      disabled={isLockedByOther}
+                    >
+                      Edit
+                    </Button>
+                  </span>
+                </Tooltip>
+              </Box>
+            );
+          },
         },
       ]
     : baseColumns;

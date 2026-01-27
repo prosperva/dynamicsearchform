@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,6 +21,7 @@ import {
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useGridManagement } from '@/hooks/useGridManagement';
 import { useProduct, useUpdateProduct, type UpdateProductInput } from '@/hooks/useProducts';
+import { LockService } from '@/lib/lockService';
 
 // Form validation schema
 const productSchema = z.object({
@@ -52,11 +53,54 @@ const statuses = [
 export default function ProductEditPage() {
   const params = useParams();
   const id = Number(params.id);
+  const currentUser = 'demo_user@example.com'; // In production, get from auth context
+  const lockReleasedRef = useRef(false);
 
   // Use grid management hook for navigation
   const { returnToGrid } = useGridManagement({
     gridId: 'products-grid',
   });
+
+  // Release lock helper
+  const releaseLock = useCallback(async () => {
+    if (!lockReleasedRef.current && id) {
+      lockReleasedRef.current = true;
+      await LockService.releaseLock('products', id.toString(), currentUser);
+    }
+  }, [id, currentUser]);
+
+  // Release lock on unmount
+  useEffect(() => {
+    return () => {
+      releaseLock();
+    };
+  }, [releaseLock]);
+
+  // Heartbeat to keep lock alive while editing
+  useEffect(() => {
+    if (!id) return;
+
+    const heartbeat = setInterval(async () => {
+      await LockService.refreshLock('products', id.toString(), currentUser);
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(heartbeat);
+  }, [id, currentUser]);
+
+  // Handle browser close/refresh - release lock
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Use sendBeacon for reliable delivery on page unload
+      navigator.sendBeacon('/api/locks/release', JSON.stringify({
+        tableName: 'products',
+        rowId: id.toString(),
+        userId: currentUser
+      }));
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [id, currentUser]);
 
   // Fetch product data using React Query
   const {
@@ -108,7 +152,8 @@ export default function ProductEditPage() {
         id,
         data: data as UpdateProductInput,
       });
-      // Return to grid on success
+      // Release lock and return to grid on success
+      await releaseLock();
       returnToGrid();
     } catch (error) {
       // Error is handled by mutation state
@@ -117,7 +162,9 @@ export default function ProductEditPage() {
   };
 
   // Handle back navigation
-  const handleBack = () => {
+  const handleBack = async () => {
+    // Release lock before navigating back
+    await releaseLock();
     returnToGrid();
   };
 
