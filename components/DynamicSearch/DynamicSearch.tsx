@@ -226,6 +226,21 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
     return 3; // 4 columns for 10+ fields
   };
 
+  // Get responsive column sizes based on columnLayout
+  // When columnLayout is explicitly set (not 'auto'), use it for all breakpoints
+  // When 'auto', use responsive defaults: full width on xs, 2 cols on sm, calculated on md+
+  const getResponsiveColumnSizes = () => {
+    const mdSize = getColumnSize() as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+
+    if (columnLayout !== 'auto') {
+      // When explicitly set, use the same column count for all screen sizes
+      return { xs: mdSize, sm: mdSize, md: mdSize };
+    }
+
+    // Auto mode: responsive behavior
+    return { xs: 12, sm: 6, md: mdSize };
+  };
+
   // Check if user can delete a search
   const canDeleteSearch = (search: SavedSearch) => {
     if (isAdmin) return true;
@@ -624,12 +639,14 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
               },
             }}
           >
-            {fields.map((field) => (
+            {fields.map((field) => {
+              const colSizes = getResponsiveColumnSizes();
+              return (
               <Grid
                 item
-                xs={12}
-                sm={6}
-                md={getColumnSize() as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12}
+                xs={colSizes.xs}
+                sm={colSizes.sm}
+                md={colSizes.md}
                 key={field.name}
                 sx={{ display: 'flex', flexDirection: 'column' }}
               >
@@ -643,7 +660,8 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
                   formMode={formMode}
                 />
               </Grid>
-            ))}
+              );
+            })}
 
             {/* Custom fields - developer has full control */}
             {customFields && customFields(formValues, handleFieldChange)}
