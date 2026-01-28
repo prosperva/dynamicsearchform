@@ -205,40 +205,22 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
     return search.context === searchContext;
   });
 
-  // Calculate column size based on layout preference
-  // Material UI grid is 12 columns wide, so we divide by desired number of columns:
-  // columnLayout=1 → 12/1=12 (full width, 1 field per row)
-  // columnLayout=2 → 12/2=6  (half width, 2 fields per row)
-  // columnLayout=3 → 12/3=4  (third width, 3 fields per row)
-  // columnLayout=4 → 12/4=3  (quarter width, 4 fields per row)
-  const getColumnSize = () => {
-    // If columnLayout is specified, use it
+  // Get the number of columns to display based on columnLayout prop
+  // columnLayout=1 → 1 column (full width)
+  // columnLayout=2 → 2 columns (half width each)
+  // columnLayout=3 → 3 columns (third width each)
+  // columnLayout=4 → 4 columns (quarter width each)
+  // columnLayout='auto' → calculated based on field count
+  const getNumColumns = (): number => {
     if (columnLayout !== 'auto') {
-      const columns = columnLayout as number;
-      return 12 / columns;
+      return columnLayout as number;
     }
-
     // Auto mode: calculate based on field count
     const fieldCount = fields.length;
-    if (fieldCount <= 3) return 12; // 1 column (full width)
-    if (fieldCount <= 6) return 6;  // 2 columns
-    if (fieldCount <= 9) return 4;  // 3 columns
-    return 3; // 4 columns for 10+ fields
-  };
-
-  // Get responsive column sizes based on columnLayout
-  // When columnLayout is explicitly set (not 'auto'), use it for all breakpoints
-  // When 'auto', use responsive defaults: full width on xs, 2 cols on sm, calculated on md+
-  const getResponsiveColumnSizes = () => {
-    const mdSize = getColumnSize() as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
-
-    if (columnLayout !== 'auto') {
-      // When explicitly set, use the same column count for all screen sizes
-      return { xs: mdSize, sm: mdSize, md: mdSize };
-    }
-
-    // Auto mode: responsive behavior
-    return { xs: 12, sm: 6, md: mdSize };
+    if (fieldCount <= 3) return 1;
+    if (fieldCount <= 6) return 2;
+    if (fieldCount <= 9) return 3;
+    return 4;
   };
 
   // Check if user can delete a search
@@ -632,23 +614,21 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
           <Grid
             container
             spacing={3}
-            sx={{
-              // Ensure proper box-sizing for consistent alignment across projects
-              '& .MuiGrid-item': {
-                boxSizing: 'border-box',
-              },
-            }}
           >
             {fields.map((field) => {
-              const colSizes = getResponsiveColumnSizes();
+              const numCols = getNumColumns();
+              // Calculate grid size: 12 / numColumns
+              // 1 col = 12, 2 cols = 6, 3 cols = 4, 4 cols = 3
+              const gridSize = (12 / numCols) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+
               return (
               <Grid
                 item
-                xs={colSizes.xs}
-                sm={colSizes.sm}
-                md={colSizes.md}
+                xs={12}
+                sm={numCols === 1 ? 12 : 6}
+                md={gridSize}
+                lg={gridSize}
                 key={field.name}
-                sx={{ display: 'flex', flexDirection: 'column' }}
               >
                 <FieldRenderer
                   field={field}
