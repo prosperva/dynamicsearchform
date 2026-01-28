@@ -444,74 +444,36 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
 
     case 'pill':
       return (
-        <PillField
-          label={field.label}
-          name={field.name}
-          value={value || []}
-          onChange={onChange}
-          placeholder={field.placeholder}
-          helperText={field.helperText}
-          required={isRequired}
-          disabled={isDisabled}
-          pillType={field.pillType}
-          allowRanges={field.allowRanges}
-          tooltip={field.tooltip}
-          error={error}
-        />
+        <FieldWrapper>
+          <PillField
+            label={field.label}
+            name={field.name}
+            value={value || []}
+            onChange={onChange}
+            placeholder={field.placeholder}
+            helperText={field.helperText}
+            required={isRequired}
+            disabled={isDisabled}
+            pillType={field.pillType}
+            allowRanges={field.allowRanges}
+            tooltip={field.tooltip}
+            error={error}
+          />
+        </FieldWrapper>
       );
 
     case 'group':
       return (
-        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <FormLabel component="legend" sx={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
-              <LabelWithTooltip label={field.label} tooltip={field.tooltip} />
-            </FormLabel>
-          </Box>
-          {field.helperText && (
-            <FormHelperText sx={{ mt: -1, mb: 2 }}>{field.helperText}</FormHelperText>
-          )}
-          <Stack spacing={2}>
-            {field.fields?.map((subField) => (
-              <FieldRenderer
-                key={subField.name}
-                field={subField}
-                value={value?.[subField.name]}
-                onChange={(name, val) => {
-                  const newValue = { ...(value || {}), [name]: val };
-                  onChange(field.name, newValue);
-                }}
-                allValues={{ ...allValues, ...(value || {}) }}
-                allFields={allFields}
-                formMode={formMode}
-              />
-            ))}
-          </Stack>
-        </Box>
-      );
-
-    case 'accordion':
-      return (
-        <Accordion defaultExpanded={field.defaultExpanded ?? false}>
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            sx={{
-              bgcolor: 'action.hover',
-              '&:hover': { bgcolor: 'action.selected' },
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+        <FieldWrapper>
+          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2, width: '100%' }}>
+            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
               <FormLabel component="legend" sx={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
                 <LabelWithTooltip label={field.label} tooltip={field.tooltip} />
               </FormLabel>
-              {field.helperText && (
-                <FormHelperText sx={{ ml: 'auto', fontSize: '0.75rem' }}>
-                  {field.helperText}
-                </FormHelperText>
-              )}
             </Box>
-          </AccordionSummary>
-          <AccordionDetails sx={{ pt: 2 }}>
+            {field.helperText && (
+              <FormHelperText sx={{ mt: -1, mb: 2 }}>{field.helperText}</FormHelperText>
+            )}
             <Stack spacing={2}>
               {field.fields?.map((subField) => (
                 <FieldRenderer
@@ -528,43 +490,91 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
                 />
               ))}
             </Stack>
-          </AccordionDetails>
-        </Accordion>
+          </Box>
+        </FieldWrapper>
+      );
+
+    case 'accordion':
+      return (
+        <FieldWrapper>
+          <Accordion defaultExpanded={field.defaultExpanded ?? false} sx={{ width: '100%' }}>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={{
+                bgcolor: 'action.hover',
+                '&:hover': { bgcolor: 'action.selected' },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                <FormLabel component="legend" sx={{ fontWeight: 'bold', fontSize: '0.95rem' }}>
+                  <LabelWithTooltip label={field.label} tooltip={field.tooltip} />
+                </FormLabel>
+                {field.helperText && (
+                  <FormHelperText sx={{ ml: 'auto', fontSize: '0.75rem' }}>
+                    {field.helperText}
+                  </FormHelperText>
+                )}
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={{ pt: 2 }}>
+              <Stack spacing={2}>
+                {field.fields?.map((subField) => (
+                  <FieldRenderer
+                    key={subField.name}
+                    field={subField}
+                    value={value?.[subField.name]}
+                    onChange={(name, val) => {
+                      const newValue = { ...(value || {}), [name]: val };
+                      onChange(field.name, newValue);
+                    }}
+                    allValues={{ ...allValues, ...(value || {}) }}
+                    allFields={allFields}
+                    formMode={formMode}
+                  />
+                ))}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        </FieldWrapper>
       );
 
     case 'modal-select':
       return (
-        <ModalSelectField
-          label={field.label}
-          name={field.name}
-          value={field.allowMultiple ? (value || []) : (value || '')}
-          onChange={onChange}
-          options={field.options}
-          apiUrl={field.apiUrl}
-          apiLabelField={field.apiLabelField}
-          apiValueField={field.apiValueField}
-          placeholder={field.placeholder}
-          helperText={field.helperText}
-          required={isRequired}
-          disabled={isDisabled}
-          tooltip={field.tooltip}
-          allowMultiple={field.allowMultiple}
-          error={error}
-        />
+        <FieldWrapper>
+          <ModalSelectField
+            label={field.label}
+            name={field.name}
+            value={field.allowMultiple ? (value || []) : (value || '')}
+            onChange={onChange}
+            options={field.options}
+            apiUrl={field.apiUrl}
+            apiLabelField={field.apiLabelField}
+            apiValueField={field.apiValueField}
+            placeholder={field.placeholder}
+            helperText={field.helperText}
+            required={isRequired}
+            disabled={isDisabled}
+            tooltip={field.tooltip}
+            allowMultiple={field.allowMultiple}
+            error={error}
+          />
+        </FieldWrapper>
       );
 
     case 'richtext': {
       const { RichTextEditor } = require('./RichTextEditor');
       const labelText = isRequired ? `${field.label} *` : field.label;
       return (
-        <RichTextEditor
-          value={value || ''}
-          onChange={(html: string) => onChange(field.name, html)}
-          placeholder={field.placeholder}
-          disabled={isDisabled}
-          label={labelText}
-          helperText={field.helperText}
-        />
+        <FieldWrapper>
+          <RichTextEditor
+            value={value || ''}
+            onChange={(html: string) => onChange(field.name, html)}
+            placeholder={field.placeholder}
+            disabled={isDisabled}
+            label={labelText}
+            helperText={field.helperText}
+          />
+        </FieldWrapper>
       );
     }
 

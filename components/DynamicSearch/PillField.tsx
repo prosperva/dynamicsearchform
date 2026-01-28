@@ -175,7 +175,7 @@ export const PillField: React.FC<PillFieldProps> = ({
   ) : label;
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%', minWidth: 0 }}>
       <TextField
         fullWidth
         multiline
@@ -190,20 +190,19 @@ export const PillField: React.FC<PillFieldProps> = ({
         required={required}
         disabled={disabled}
         helperText={error || helperText}
-        slotProps={{
-          input: {
-            sx: {
-              padding: '12px 14px',
-              '& textarea': {
-                padding: 0,
-              },
-            },
-          },
-        }}
         sx={{
           width: '100%',
           '& .MuiOutlinedInput-root': {
             minWidth: 'unset',
+            width: '100%',
+            padding: '12px 14px',
+            alignItems: 'flex-start',
+          },
+          '& .MuiOutlinedInput-input': {
+            padding: 0,
+          },
+          '& .MuiInputBase-inputMultiline': {
+            padding: 0,
           },
         }}
       />
