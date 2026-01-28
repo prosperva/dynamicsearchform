@@ -638,7 +638,7 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
                 key={field.name}
                 sx={{
                   minWidth: '0 !important',
-                  overflow: 'hidden',
+                  // Note: Do NOT use overflow: hidden as it clips dropdown menus
                 }}
               >
                 <FieldRenderer

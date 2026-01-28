@@ -77,7 +77,7 @@ const FieldWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       width: '100%',
       minWidth: '0 !important',
       maxWidth: '100%',
-      overflow: 'hidden',
+      // Note: Do NOT use overflow: hidden here as it will clip dropdown menus
       '& .MuiTextField-root, & .MuiAutocomplete-root, & .MuiFormControl-root': {
         minWidth: '0 !important',
         width: '100%',
@@ -124,13 +124,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
     }
   };
 
-  useEffect(() => {
-    if (field.apiUrl && !field.options) {
-      fetchOptions();
-    }
-  }, [field.apiUrl]);
-
-
+  // Fetch options from API - must be defined before useEffect that calls it
   const fetchOptions = async () => {
     if (!field.apiUrl) return;
 
@@ -167,6 +161,14 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
       setLoading(false);
     }
   };
+
+  // Fetch options when apiUrl is provided and no static options exist
+  useEffect(() => {
+    if (field.apiUrl && !field.options) {
+      fetchOptions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [field.apiUrl]);
 
   const handleChange = (newValue: any) => {
     onChange(field.name, newValue);
