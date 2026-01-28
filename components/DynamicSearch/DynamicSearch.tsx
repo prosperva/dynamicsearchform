@@ -614,9 +614,25 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
             </Alert>
           )}
 
-          <Grid container spacing={3}>
+          <Grid
+            container
+            spacing={3}
+            sx={{
+              // Ensure proper box-sizing for consistent alignment across projects
+              '& .MuiGrid-item': {
+                boxSizing: 'border-box',
+              },
+            }}
+          >
             {fields.map((field) => (
-              <Grid item xs={12} sm={6} md={getColumnSize()} key={field.name}>
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                md={getColumnSize() as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12}
+                key={field.name}
+                sx={{ display: 'flex', flexDirection: 'column' }}
+              >
                 <FieldRenderer
                   field={field}
                   value={formValues[field.name]}

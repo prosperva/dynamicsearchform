@@ -69,6 +69,13 @@ const LabelWithTooltip: React.FC<{ label: string; tooltip?: string }> = ({ label
   );
 };
 
+// Wrapper component to ensure consistent width and styling across projects
+const FieldWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Box sx={{ width: '100%', minWidth: 0 }}>
+    {children}
+  </Box>
+);
+
 export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onChange, error, allValues = {}, allFields = [], formMode = 'search' }) => {
   const [options, setOptions] = useState<DropdownOption[]>(field.options || []);
   const [loading, setLoading] = useState(false);
@@ -114,8 +121,19 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
 
     setLoading(true);
     try {
-      const response = await fetch(field.apiUrl);
-      const data = await response.json();
+      const response = await fetch(field.apiUrl, {
+        credentials: 'include', // Include cookies for authentication
+      });
+      const responseData = await response.json();
+
+      // Handle both array responses and { data: [...] } wrapped responses
+      const data = Array.isArray(responseData) ? responseData : (responseData.data || responseData);
+
+      if (!Array.isArray(data)) {
+        console.error(`Invalid API response for ${field.name}: expected array`);
+        setOptions([]);
+        return;
+      }
 
       // Map API response to DropdownOption format
       const labelField = field.apiLabelField || 'label';
@@ -129,6 +147,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
       setOptions(mappedOptions);
     } catch (error) {
       console.error(`Error fetching options for ${field.name}:`, error);
+      setOptions([]);
     } finally {
       setLoading(false);
     }
@@ -162,10 +181,12 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
 
   if (loading) {
     return (
-      <Box display="flex" alignItems="center" gap={1}>
-        <CircularProgress size={20} />
-        <span>Loading {field.label}...</span>
-      </Box>
+      <FieldWrapper>
+        <Box display="flex" alignItems="center" gap={1}>
+          <CircularProgress size={20} />
+          <span>Loading {field.label}...</span>
+        </Box>
+      </FieldWrapper>
     );
   }
 
@@ -192,70 +213,76 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
 
     case 'number':
       return (
-        <TextField
-          fullWidth
-          type="number"
-          label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
-          name={field.name}
-          value={value || ''}
-          onChange={(e) => handleChange(e.target.value)}
-          placeholder={field.placeholder}
-          helperText={error || field.helperText}
-          required={isRequired}
-          disabled={isDisabled}
-          variant="outlined"
-          error={!!error}
-        />
+        <FieldWrapper>
+          <TextField
+            fullWidth
+            type="number"
+            label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
+            name={field.name}
+            value={value || ''}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={field.placeholder}
+            helperText={error || field.helperText}
+            required={isRequired}
+            disabled={isDisabled}
+            variant="outlined"
+            error={!!error}
+          />
+        </FieldWrapper>
       );
 
     case 'date':
       return (
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DatePicker
-            label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
-            value={value ? dayjs(value) : null}
-            onChange={(newValue: Dayjs | null) => {
-              handleChange(newValue ? newValue.format('YYYY-MM-DD') : '');
-            }}
-            disabled={isDisabled}
-            slotProps={{
-              textField: {
-                fullWidth: true,
-                required: isRequired,
-                helperText: error || field.helperText,
-                variant: 'outlined',
-                error: !!error,
-              },
-            }}
-          />
-        </LocalizationProvider>
+        <FieldWrapper>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
+              value={value ? dayjs(value) : null}
+              onChange={(newValue: Dayjs | null) => {
+                handleChange(newValue ? newValue.format('YYYY-MM-DD') : '');
+              }}
+              disabled={isDisabled}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  required: isRequired,
+                  helperText: error || field.helperText,
+                  variant: 'outlined',
+                  error: !!error,
+                },
+              }}
+            />
+          </LocalizationProvider>
+        </FieldWrapper>
       );
 
     case 'dropdown':
       const selectedOption = options.find((opt) => opt.value === value) || null;
 
       return (
-        <Autocomplete
-          options={options}
-          value={selectedOption}
-          onChange={(_, newValue) => {
-            handleChange(newValue ? newValue.value : '');
-          }}
-          disabled={isDisabled}
-          getOptionLabel={(option) => option.label}
-          isOptionEqualToValue={(option, value) => option.value === value.value}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
-              required={isRequired}
-              helperText={error || field.helperText}
-              variant="outlined"
-              error={!!error}
-            />
-          )}
-          fullWidth
-        />
+        <FieldWrapper>
+          <Autocomplete
+            options={options}
+            value={selectedOption}
+            onChange={(_, newValue) => {
+              handleChange(newValue ? newValue.value : '');
+            }}
+            disabled={isDisabled}
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(option, value) => option.value === value.value}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
+                required={isRequired}
+                helperText={error || field.helperText}
+                variant="outlined"
+                error={!!error}
+              />
+            )}
+            fullWidth
+          />
+        </FieldWrapper>
       );
 
     case 'multiselect':
@@ -328,44 +355,48 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
 
     case 'checkbox':
       return (
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={value || false}
-              onChange={(e) => handleChange(e.target.checked)}
-              name={field.name}
-              disabled={isDisabled}
-            />
-          }
-          label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
-          sx={{ mt: 1 }}
-        />
+        <FieldWrapper>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={value || false}
+                onChange={(e) => handleChange(e.target.checked)}
+                name={field.name}
+                disabled={isDisabled}
+              />
+            }
+            label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
+            sx={{ mt: 1 }}
+          />
+        </FieldWrapper>
       );
 
     case 'radio':
       return (
-        <FormControl component="fieldset" required={isRequired} error={!!error} disabled={isDisabled}>
-          <FormLabel component="legend">
-            <LabelWithTooltip label={field.label} tooltip={field.tooltip} />
-          </FormLabel>
-          <RadioGroup
-            name={field.name}
-            value={value || ''}
-            onChange={(e) => handleChange(e.target.value)}
-          >
-            {options.map((option) => (
-              <FormControlLabel
-                key={option.value}
-                value={option.value}
-                control={<Radio />}
-                label={option.label}
-              />
-            ))}
-          </RadioGroup>
-          {(error || field.helperText) && (
-            <FormHelperText>{error || field.helperText}</FormHelperText>
-          )}
-        </FormControl>
+        <FieldWrapper>
+          <FormControl component="fieldset" required={isRequired} error={!!error} disabled={isDisabled} sx={{ width: '100%' }}>
+            <FormLabel component="legend">
+              <LabelWithTooltip label={field.label} tooltip={field.tooltip} />
+            </FormLabel>
+            <RadioGroup
+              name={field.name}
+              value={value || ''}
+              onChange={(e) => handleChange(e.target.value)}
+            >
+              {options.map((option) => (
+                <FormControlLabel
+                  key={option.value}
+                  value={option.value}
+                  control={<Radio />}
+                  label={option.label}
+                />
+              ))}
+            </RadioGroup>
+            {(error || field.helperText) && (
+              <FormHelperText>{error || field.helperText}</FormHelperText>
+            )}
+          </FormControl>
+        </FieldWrapper>
       );
 
     case 'pill':

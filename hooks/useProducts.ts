@@ -27,12 +27,16 @@ export const productKeys = {
 };
 
 // Hook for fetching products list with pagination, sorting, and filtering
-export function useProducts(params: ProductsQueryParams) {
+export function useProducts(
+  params: ProductsQueryParams,
+  options?: { enabled?: boolean }
+) {
   return useQuery<ProductsResponse, Error>({
     queryKey: productKeys.list(params),
     queryFn: () => fetchProducts(params),
     placeholderData: keepPreviousData, // Keep showing previous data while loading new page
     staleTime: 1 * 60 * 1000, // 1 minute
+    enabled: options?.enabled ?? true,
   });
 }
 

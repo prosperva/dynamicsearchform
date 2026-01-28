@@ -229,7 +229,10 @@ export default function ProductsPage() {
   }), [state.sortModel, state.filters]);
 
   // Fetch products using React Query (paginated for grid view)
-  const { data, isLoading, isError, error, refetch, isFetching } = useProducts(queryParams);
+  // Only fetch when user has clicked search (hasSearched = true)
+  const { data, isLoading, isError, error, refetch, isFetching } = useProducts(queryParams, {
+    enabled: hasSearched,
+  });
 
   // Check if current view mode requires all data (fetchAll: true)
   const currentReportOption = reportOptions.find(opt => opt.id === viewMode);
