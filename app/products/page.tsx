@@ -839,8 +839,13 @@ export default function ProductsPage() {
 
   // Pagination handlers
   const handlePaginationChange = (model: GridPaginationModel) => {
-    setPage(model.page);
-    setPageSize(model.pageSize);
+    // Only update page if it changed (don't call setPageSize unnecessarily
+    // since setPageSize resets page to 0)
+    if (model.pageSize !== state.pageSize) {
+      setPageSize(model.pageSize);
+    } else if (model.page !== state.page) {
+      setPage(model.page);
+    }
   };
 
   const handleSortChange = (model: GridSortModel) => {
