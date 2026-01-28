@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
-  Grid,
   Paper,
   Typography,
   Dialog,
@@ -611,36 +610,41 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
             </Alert>
           )}
 
-          <Grid
-            container
-            spacing={3}
+          <Box
             sx={{
-              // Reset any inherited styles that could break layout
-              '& .MuiGrid-item': {
-                minWidth: '0 !important',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 3,
+              '& > *': {
+                // Calculate width based on number of columns with gap consideration
+                // For 1 col: 100%, 2 cols: ~48%, 3 cols: ~31%, 4 cols: ~23%
+                flexBasis: `calc(${100 / getNumColumns()}% - ${((getNumColumns() - 1) * 24) / getNumColumns()}px)`,
+                flexGrow: 0,
+                flexShrink: 0,
                 boxSizing: 'border-box',
+                // Override any external min-width styles
+                minWidth: '0 !important',
+                maxWidth: '100%',
+              },
+              // Override any nested form elements that might have forced min-width
+              '& .MuiFormControl-root, & .MuiAutocomplete-root, & .MuiTextField-root': {
+                minWidth: 'unset !important',
+              },
+              // Responsive overrides
+              '@media (max-width: 900px)': {
+                '& > *': {
+                  flexBasis: getNumColumns() === 1 ? '100%' : 'calc(50% - 12px)',
+                },
+              },
+              '@media (max-width: 600px)': {
+                '& > *': {
+                  flexBasis: '100%',
+                },
               },
             }}
           >
-            {fields.map((field) => {
-              const numCols = getNumColumns();
-              // Calculate grid size: 12 / numColumns
-              // 1 col = 12, 2 cols = 6, 3 cols = 4, 4 cols = 3
-              const gridSize = (12 / numCols) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
-
-              return (
-              <Grid
-                item
-                xs={12}
-                sm={numCols === 1 ? 12 : 6}
-                md={gridSize}
-                lg={gridSize}
-                key={field.name}
-                sx={{
-                  minWidth: '0 !important',
-                  // Note: Do NOT use overflow: hidden as it clips dropdown menus
-                }}
-              >
+            {fields.map((field) => (
+              <Box key={field.name}>
                 <FieldRenderer
                   field={field}
                   value={formValues[field.name]}
@@ -650,13 +654,12 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
                   allFields={fields}
                   formMode={formMode}
                 />
-              </Grid>
-              );
-            })}
+              </Box>
+            ))}
 
             {/* Custom fields - developer has full control */}
             {customFields && customFields(formValues, handleFieldChange)}
-          </Grid>
+          </Box>
 
           <Divider sx={{ my: 3 }} />
 

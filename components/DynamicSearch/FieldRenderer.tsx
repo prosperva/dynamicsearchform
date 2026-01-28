@@ -70,20 +70,26 @@ const LabelWithTooltip: React.FC<{ label: string; tooltip?: string }> = ({ label
 };
 
 // Wrapper component to ensure consistent width and styling across projects
-// Uses !important to override any external CSS that might force min-width
+// Uses defensive CSS to override any external styles that might affect layout
 const FieldWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Box
     sx={{
       width: '100%',
-      minWidth: '0 !important',
-      maxWidth: '100%',
-      // Note: Do NOT use overflow: hidden here as it will clip dropdown menus
-      '& .MuiTextField-root, & .MuiAutocomplete-root, & .MuiFormControl-root': {
-        minWidth: '0 !important',
+      // Override any external min-width that might be forced on form fields
+      '& .MuiFormControl-root': {
+        minWidth: 'unset',
+        width: '100%',
+      },
+      '& .MuiAutocomplete-root': {
+        minWidth: 'unset',
+        width: '100%',
+      },
+      '& .MuiTextField-root': {
+        minWidth: 'unset',
         width: '100%',
       },
       '& .MuiInputBase-root': {
-        minWidth: '0 !important',
+        minWidth: 'unset',
       },
     }}
   >
