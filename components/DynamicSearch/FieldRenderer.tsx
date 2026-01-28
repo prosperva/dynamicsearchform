@@ -20,6 +20,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Typography,
 } from '@mui/material';
 import {
   HelpOutline as HelpIcon,
@@ -323,56 +324,75 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
 
       return (
         <FieldWrapper>
-          <Autocomplete
-            multiple
-            options={options}
-            value={selectedOptions}
-            onChange={(_, newValue) => {
-              handleChange(newValue.map((opt) => opt.value));
-            }}
-            disabled={isDisabled}
-            getOptionLabel={(option) => option.label}
-            isOptionEqualToValue={(option, value) => option.value === value.value}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
-                required={isRequired}
-                helperText={error || field.helperText}
-                variant="outlined"
-                error={!!error}
-              />
-            )}
-            renderTags={(value, getTagProps) =>
-              value.map((option, index) => (
-                <Chip
-                  {...getTagProps({ index })}
-                  key={option.value}
-                  label={option.label}
-                  size="small"
+          <Box sx={{ width: '100%' }}>
+            <Autocomplete
+              multiple
+              options={options}
+              value={selectedOptions}
+              onChange={(_, newValue) => {
+                handleChange(newValue.map((opt) => opt.value));
+              }}
+              disabled={isDisabled}
+              getOptionLabel={(option) => option.label}
+              isOptionEqualToValue={(option, value) => option.value === value.value}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
+                  required={isRequired}
+                  helperText={error || field.helperText}
+                  variant="outlined"
+                  error={!!error}
                 />
-              ))
-            }
-            fullWidth
-          />
-          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-            <Button
-              size="small"
-              onClick={handleSelectAll}
-              disabled={isDisabled || allSelected}
-              variant="outlined"
-            >
-              Select All
-            </Button>
-            <Button
-              size="small"
-              onClick={handleClearAll}
-              disabled={isDisabled || !value || value.length === 0}
-              variant="outlined"
-            >
-              Clear All
-            </Button>
-          </Stack>
+              )}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    {...getTagProps({ index })}
+                    key={option.value}
+                    label={option.label}
+                    size="small"
+                  />
+                ))
+              }
+              fullWidth
+              sx={{
+                width: '100%',
+                '& .MuiAutocomplete-inputRoot': {
+                  flexWrap: 'wrap',
+                  minHeight: '56px',
+                  height: 'auto',
+                  padding: '8px 14px 8px 8px',
+                },
+                '& .MuiAutocomplete-tag': {
+                  margin: '2px',
+                },
+              }}
+            />
+            <Stack direction="row" spacing={1} sx={{ mt: 1.5 }} alignItems="center">
+              <Button
+                size="small"
+                onClick={handleSelectAll}
+                disabled={isDisabled || allSelected}
+                variant="outlined"
+              >
+                Select All
+              </Button>
+              <Button
+                size="small"
+                onClick={handleClearAll}
+                disabled={isDisabled || !value || value.length === 0}
+                variant="outlined"
+              >
+                Clear All
+              </Button>
+              {value && value.length > 0 && (
+                <Typography variant="caption" color="text.secondary">
+                  {value.length} {value.length === 1 ? 'item' : 'items'} selected
+                </Typography>
+              )}
+            </Stack>
+          </Box>
         </FieldWrapper>
       );
 
