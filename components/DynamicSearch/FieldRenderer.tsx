@@ -70,8 +70,23 @@ const LabelWithTooltip: React.FC<{ label: string; tooltip?: string }> = ({ label
 };
 
 // Wrapper component to ensure consistent width and styling across projects
+// Uses !important to override any external CSS that might force min-width
 const FieldWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Box sx={{ width: '100%', minWidth: 0 }}>
+  <Box
+    sx={{
+      width: '100%',
+      minWidth: '0 !important',
+      maxWidth: '100%',
+      overflow: 'hidden',
+      '& .MuiTextField-root, & .MuiAutocomplete-root, & .MuiFormControl-root': {
+        minWidth: '0 !important',
+        width: '100%',
+      },
+      '& .MuiInputBase-root': {
+        minWidth: '0 !important',
+      },
+    }}
+  >
     {children}
   </Box>
 );
@@ -193,7 +208,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
   switch (field.type) {
     case 'text':
       return (
-        <Box>
+        <FieldWrapper>
           <TextField
             fullWidth
             label={<LabelWithTooltip label={field.label} tooltip={field.tooltip} />}
@@ -208,7 +223,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
             error={!!error}
           />
           {renderCopyButton()}
-        </Box>
+        </FieldWrapper>
       );
 
     case 'number':
@@ -299,7 +314,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
       };
 
       return (
-        <Box>
+        <FieldWrapper>
           <Autocomplete
             multiple
             options={options}
@@ -350,7 +365,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({ field, value, onCh
               Clear All
             </Button>
           </Stack>
-        </Box>
+        </FieldWrapper>
       );
 
     case 'checkbox':

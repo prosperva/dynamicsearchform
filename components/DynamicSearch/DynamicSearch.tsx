@@ -614,6 +614,13 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
           <Grid
             container
             spacing={3}
+            sx={{
+              // Reset any inherited styles that could break layout
+              '& .MuiGrid-item': {
+                minWidth: '0 !important',
+                boxSizing: 'border-box',
+              },
+            }}
           >
             {fields.map((field) => {
               const numCols = getNumColumns();
@@ -629,6 +636,10 @@ export const DynamicSearch: React.FC<DynamicSearchProps> = ({
                 md={gridSize}
                 lg={gridSize}
                 key={field.name}
+                sx={{
+                  minWidth: '0 !important',
+                  overflow: 'hidden',
+                }}
               >
                 <FieldRenderer
                   field={field}
