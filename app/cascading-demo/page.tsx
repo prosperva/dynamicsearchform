@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import {
   Container,
   Paper,
@@ -8,35 +8,22 @@ import {
   Box,
   TextField,
   Button,
-  Chip,
   Alert,
   Divider,
   CircularProgress,
-  IconButton,
   Snackbar,
 } from '@mui/material';
 import {
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  Delete as DeleteIcon,
   Save as SaveIcon,
-  Verified as VerifiedIcon,
   SearchOff as SearchOffIcon,
 } from '@mui/icons-material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import CascadingDropdowns from '@/components/CascadingDropdowns/CascadingDropdowns';
+import CodesSection, { CodeEntry } from '@/components/CodesSection/CodesSection';
 
 interface Item {
   id: string | number;
   name: string;
   parentId?: string | number | null;
-}
-
-interface CodeEntry {
-  id: string;
-  code: string;
-  status: 'validating' | 'valid' | 'invalid';
-  message?: string;
 }
 
 const FAKE_CATEGORIES: Item[] = [
@@ -59,62 +46,18 @@ const FAKE_CATEGORIES: Item[] = [
   { id: 42, name: 'Team Sports', parentId: 4 },
 ];
 
-const CODE_REGEX = /^\d+(\.\d+)*( \(\d+\))?$/;
-
 const fieldSx = { '& .MuiOutlinedInput-root fieldset': { borderColor: '#1976d2' } };
 
 export default function CascadingDemoPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<{ parent: Item; child: Item | null } | null>(null);
-  const [codeInput, setCodeInput] = useState('');
-  const [codeError, setCodeError] = useState('');
   const [codes, setCodes] = useState<CodeEntry[]>([]);
   const [saving, setSaving] = useState(false);
-  const [saveResult, setSaveResult] = useState<{ referenceNumber: string; submittedAt: string } | null>(null);
+  const [saveResult, setSaveResult] = useState<{ referenceNumber: string; submittedAt: string; link?: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const hasValidating = codes.some((c) => c.status === 'validating');
-
-  function validateFormat(code: string): string {
-    if (!code.trim()) return 'Please enter a code.';
-    if (!CODE_REGEX.test(code.trim())) return 'Format must be X.X.X.X or X.X.X.X (Y) — e.g. 3.2.4.5 or 3.2.4.5 (0)';
-    if (codes.some((c) => c.code === code.trim())) return 'This code has already been added.';
-    return '';
-  }
-
-  async function handleAddCode() {
-    const trimmed = codeInput.trim();
-    const err = validateFormat(trimmed);
-    if (err) { setCodeError(err); return; }
-    setCodeError('');
-
-    const entry: CodeEntry = { id: crypto.randomUUID(), code: trimmed, status: 'validating' };
-    setCodes((prev) => [...prev, entry]);
-    setCodeInput('');
-    inputRef.current?.focus();
-
-    try {
-      const res = await fetch('/api/mock/validate-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: trimmed }),
-      });
-      const data = await res.json();
-      setCodes((prev) =>
-        prev.map((c) => c.id === entry.id ? { ...c, status: data.valid ? 'valid' : 'invalid', message: data.message } : c)
-      );
-    } catch {
-      setCodes((prev) =>
-        prev.map((c) => c.id === entry.id ? { ...c, status: 'invalid', message: 'Validation request failed.' } : c)
-      );
-    }
-  }
-
-  function handleRemoveCode(id: string) {
-    setCodes((prev) => prev.filter((c) => c.id !== id));
-  }
 
   async function handleSave() {
     setSaving(true);
@@ -140,53 +83,6 @@ export default function CascadingDemoPage() {
       setSaving(false);
     }
   }
-
-  const columns: GridColDef[] = [
-    {
-      field: 'code',
-      headerName: 'Code',
-      flex: 1,
-      renderCell: ({ value }) => (
-        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{value}</Typography>
-      ),
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 160,
-      renderCell: ({ value }) => {
-        if (value === 'validating') {
-          return (
-            <Box display="flex" alignItems="center" gap={1}>
-              <CircularProgress size={14} />
-              <Typography variant="caption" color="text.secondary">Validating...</Typography>
-            </Box>
-          );
-        }
-        if (value === 'valid') return <Chip icon={<CheckCircleIcon />} label="Valid" color="success" size="small" />;
-        return <Chip icon={<CancelIcon />} label="Invalid" color="error" size="small" />;
-      },
-    },
-    {
-      field: 'message',
-      headerName: 'Message',
-      flex: 1.5,
-      renderCell: ({ value }) => (
-        <Typography variant="caption" color="text.secondary">{value ?? '—'}</Typography>
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: '',
-      width: 60,
-      sortable: false,
-      renderCell: ({ row }) => (
-        <IconButton size="small" onClick={() => handleRemoveCode(row.id)} disabled={row.status === 'validating'}>
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      ),
-    },
-  ];
 
   return (
     <Container maxWidth={false} disableGutters sx={{ py: 4, px: 3, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
@@ -243,59 +139,19 @@ export default function CascadingDemoPage() {
           Codes
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-          Enter codes in the format <strong>X.X.X.X (Y)</strong> — e.g. <code>3.2.4.5 (0)</code>. Each code will be validated before being added.
+          Enter codes in the format <strong>X.X.X.X</strong> or <strong>X.X.X.X (Y)</strong>. Each code will be validated before being added.
         </Typography>
+        <CodesSection codes={codes} onChange={setCodes} />
 
-        <Box display="flex" gap={1} alignItems="flex-start" sx={{ mb: 2 }}>
-          <TextField
-            inputRef={inputRef}
-            label="Code"
-            placeholder="e.g. 3.2.4.5 (0)"
-            value={codeInput}
-            onChange={(e) => { setCodeInput(e.target.value); setCodeError(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleAddCode(); }}
-            error={!!codeError}
-            helperText={codeError || 'Press Enter or click Validate & Add'}
-            size="medium"
-            sx={{ width: 300, ...fieldSx }}
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-          <Button
-            variant="contained"
-            onClick={handleAddCode}
-            size="large"
-            startIcon={<VerifiedIcon />}
-            sx={{ height: '56px', textTransform: 'none', borderRadius: '6px', bgcolor: '#1a2744', '&:hover': { bgcolor: '#1976d2' } }}
-          >
-            Validate & Add
-          </Button>
-        </Box>
-
-        {codes.length > 0 && (
-          <Box sx={{ height: Math.min(56 + codes.length * 52, 300), mb: 3 }}>
-            <DataGrid
-              rows={codes}
-              columns={columns}
-              hideFooter
-              disableColumnMenu
-              disableRowSelectionOnClick
-              sx={{
-                border: 'none',
-                '& .MuiDataGrid-columnHeaders': { bgcolor: '#f5f5f5' },
-                '& .MuiDataGrid-columnHeader': { bgcolor: '#f5f5f5' },
-                '& .MuiDataGrid-cell': { borderBottom: '1px solid #f0f0f0' },
-              }}
-            />
-          </Box>
-        )}
-
-        <Divider sx={{ mb: 3 }} />
+        <Divider sx={{ mt: 3, mb: 3 }} />
 
         {/* Save */}
         {saveResult && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            <strong>Saved successfully!</strong> Reference: <strong>{saveResult.referenceNumber}</strong> &nbsp;·&nbsp;
-            {new Date(saveResult.submittedAt).toLocaleString()}
+            <strong>Saved!</strong> Reference: <strong>{saveResult.referenceNumber}</strong>
+            {saveResult.link && (
+              <> &nbsp;·&nbsp; <Box component="a" href={saveResult.link} target="_blank" rel="noopener noreferrer" sx={{ color: 'inherit' }}>{saveResult.link}</Box></>
+            )}
           </Alert>
         )}
         <Box display="flex" gap={2} justifyContent="flex-start">
@@ -320,18 +176,13 @@ export default function CascadingDemoPage() {
           </Button>
         </Box>
         {!name && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, textAlign: 'left' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             A name is required to save.
           </Typography>
         )}
       </Paper>
 
-      <Snackbar
-        open={!!toast}
-        autoHideDuration={4000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
+      <Snackbar open={!!toast} autoHideDuration={4000} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert severity={toast?.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>
           {toast?.message}
         </Alert>

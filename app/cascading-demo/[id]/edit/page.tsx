@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Container,
@@ -9,7 +9,6 @@ import {
   Box,
   TextField,
   Button,
-  Chip,
   Alert,
   Divider,
   CircularProgress,
@@ -18,20 +17,9 @@ import {
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  Delete as DeleteIcon,
   Save as SaveIcon,
-  Verified as VerifiedIcon,
 } from '@mui/icons-material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
-
-interface CodeEntry {
-  id: string;
-  code: string;
-  status: 'saved' | 'validating' | 'valid' | 'invalid';
-  message?: string;
-}
+import CodesSection, { CodeEntry } from '@/components/CodesSection/CodesSection';
 
 interface Submission {
   id: string;
@@ -39,12 +27,11 @@ interface Submission {
   description: string;
   category: string;
   subCategory: string | null;
-  codes: CodeEntry[];
+  codes: { id: string; code: string; status: string }[];
   referenceNumber: string;
   createdAt: string;
 }
 
-const CODE_REGEX = /^\d+(\.\d+)*( \(\d+\))?$/;
 const fieldSx = { '& .MuiOutlinedInput-root fieldset': { borderColor: '#1976d2' } };
 
 export default function EditSubmissionPage() {
@@ -54,24 +41,16 @@ export default function EditSubmissionPage() {
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
-
-  // Editable codes list — saved codes start with status 'saved'
   const [codes, setCodes] = useState<CodeEntry[]>([]);
-  const [codeInput, setCodeInput] = useState('');
-  const [codeError, setCodeError] = useState('');
-
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<{ referenceNumber: string; updatedAt: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
-
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`/api/mock/submissions/${id}`)
       .then((r) => r.json())
       .then((data: Submission) => {
         setSubmission(data);
-        // Mark existing codes as 'saved' (already validated)
         setCodes(data.codes.map((c) => ({ ...c, status: 'saved' as const })));
       })
       .catch(() => setFetchError('Failed to load submission.'))
@@ -80,45 +59,6 @@ export default function EditSubmissionPage() {
 
   const hasValidating = codes.some((c) => c.status === 'validating');
   const hasAnyCode = codes.some((c) => c.status === 'saved' || c.status === 'valid');
-
-  function validateFormat(code: string): string {
-    if (!code.trim()) return 'Please enter a code.';
-    if (!CODE_REGEX.test(code.trim())) return 'Format must be X.X.X.X or X.X.X.X (Y) — e.g. 3.2.4.5 or 3.2.4.5 (0)';
-    if (codes.some((c) => c.code === code.trim())) return 'This code has already been added.';
-    return '';
-  }
-
-  async function handleAddCode() {
-    const trimmed = codeInput.trim();
-    const err = validateFormat(trimmed);
-    if (err) { setCodeError(err); return; }
-    setCodeError('');
-
-    const entry: CodeEntry = { id: crypto.randomUUID(), code: trimmed, status: 'validating' };
-    setCodes((prev) => [...prev, entry]);
-    setCodeInput('');
-    inputRef.current?.focus();
-
-    try {
-      const res = await fetch('/api/mock/validate-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: trimmed }),
-      });
-      const data = await res.json();
-      setCodes((prev) =>
-        prev.map((c) => c.id === entry.id ? { ...c, status: data.valid ? 'valid' : 'invalid', message: data.message } : c)
-      );
-    } catch {
-      setCodes((prev) =>
-        prev.map((c) => c.id === entry.id ? { ...c, status: 'invalid', message: 'Validation request failed.' } : c)
-      );
-    }
-  }
-
-  function handleRemoveCode(id: string) {
-    setCodes((prev) => prev.filter((c) => c.id !== id));
-  }
 
   async function handleSave() {
     setSaving(true);
@@ -135,7 +75,6 @@ export default function EditSubmissionPage() {
       });
       const data = await res.json();
       setSaveResult(data);
-      // Promote 'valid' codes to 'saved'
       setCodes((prev) => prev.map((c) => c.status === 'valid' ? { ...c, status: 'saved' as const, message: undefined } : c));
       setToast({ message: `Saved! Reference: ${data.referenceNumber}`, severity: 'success' });
     } catch {
@@ -144,56 +83,6 @@ export default function EditSubmissionPage() {
       setSaving(false);
     }
   }
-
-  const columns: GridColDef[] = [
-    {
-      field: 'code',
-      headerName: 'Code',
-      flex: 1,
-      renderCell: ({ value }) => (
-        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{value}</Typography>
-      ),
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 160,
-      renderCell: ({ value }) => {
-        if (value === 'validating') {
-          return (
-            <Box display="flex" alignItems="center" gap={1}>
-              <CircularProgress size={14} />
-              <Typography variant="caption" color="text.secondary">Validating...</Typography>
-            </Box>
-          );
-        }
-        if (value === 'saved') return <Chip icon={<CheckCircleIcon />} label="Saved" color="primary" size="small" />;
-        if (value === 'valid') return <Chip icon={<CheckCircleIcon />} label="Valid" color="success" size="small" />;
-        return <Chip icon={<CancelIcon />} label="Invalid" color="error" size="small" />;
-      },
-    },
-    {
-      field: 'message',
-      headerName: 'Message',
-      flex: 1.5,
-      renderCell: ({ value, row }) => (
-        <Typography variant="caption" color="text.secondary">
-          {row.status === 'saved' ? 'Previously validated' : (value ?? '—')}
-        </Typography>
-      ),
-    },
-    {
-      field: 'actions',
-      headerName: '',
-      width: 60,
-      sortable: false,
-      renderCell: ({ row }) => (
-        <IconButton size="small" onClick={() => handleRemoveCode(row.id)} disabled={row.status === 'validating'}>
-          <DeleteIcon fontSize="small" />
-        </IconButton>
-      ),
-    },
-  ];
 
   if (loading) {
     return (
@@ -266,61 +155,19 @@ export default function EditSubmissionPage() {
           Codes
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-          Add new codes in the format <strong>X.X.X.X (Y)</strong>. Existing codes can be deleted. New codes are validated before being accepted.
+          Add new codes in the format <strong>X.X.X.X</strong> or <strong>X.X.X.X (Y)</strong>. Existing codes can be deleted.
         </Typography>
-
-        <Box display="flex" gap={1} alignItems="flex-start" sx={{ mb: 2 }}>
-          <TextField
-            inputRef={inputRef}
-            label="New Code"
-            placeholder="e.g. 3.2.4.5 (0)"
-            value={codeInput}
-            onChange={(e) => { setCodeInput(e.target.value); setCodeError(''); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleAddCode(); }}
-            error={!!codeError}
-            helperText={codeError || 'Press Enter or click Validate & Add'}
-            size="medium"
-            sx={{ width: 300, ...fieldSx }}
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-          <Button
-            variant="contained"
-            onClick={handleAddCode}
-            size="large"
-            startIcon={<VerifiedIcon />}
-            sx={{ height: '56px', textTransform: 'none', borderRadius: '6px', bgcolor: '#1a2744', '&:hover': { bgcolor: '#1976d2' } }}
-          >
-            Validate & Add
-          </Button>
-        </Box>
-
-        {codes.length > 0 && (
-          <Box sx={{ height: Math.min(56 + codes.length * 52, 350), mb: 3 }}>
-            <DataGrid
-              rows={codes}
-              columns={columns}
-              hideFooter
-              disableColumnMenu
-              disableRowSelectionOnClick
-              sx={{
-                border: 'none',
-                '& .MuiDataGrid-columnHeaders': { bgcolor: '#f5f5f5' },
-                '& .MuiDataGrid-columnHeader': { bgcolor: '#f5f5f5' },
-                '& .MuiDataGrid-cell': { borderBottom: '1px solid #f0f0f0' },
-              }}
-            />
-          </Box>
-        )}
+        <CodesSection codes={codes} onChange={setCodes} />
 
         {codes.length === 0 && (
-          <Alert severity="warning" sx={{ mb: 3 }}>No codes remaining. Add at least one code before saving.</Alert>
+          <Alert severity="warning" sx={{ mt: 2 }}>No codes remaining. Add at least one code before saving.</Alert>
         )}
 
-        <Divider sx={{ mb: 3 }} />
+        <Divider sx={{ mt: 3, mb: 3 }} />
 
         {saveResult && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            <strong>Saved successfully!</strong> Reference: <strong>{saveResult.referenceNumber}</strong>
+            <strong>Saved!</strong> Reference: <strong>{saveResult.referenceNumber}</strong>
             &nbsp;·&nbsp;{new Date(saveResult.updatedAt).toLocaleString()}
           </Alert>
         )}
