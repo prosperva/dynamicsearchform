@@ -270,6 +270,8 @@ export default function ProductEditPage() {
 
   return (
     <Container maxWidth={false} sx={{ py: 4, bgcolor: '#f5f5f5', minHeight: '200vh' }}>
+      {/* Sticky header: Toolbar + Record Info */}
+      <Box sx={{ position: 'sticky', top: '32px', zIndex: 1100, bgcolor: '#f5f5f5', pb: 0.75 }}>
       {/* Toolbar */}
       <Paper
         elevation={2}
@@ -324,11 +326,12 @@ export default function ProductEditPage() {
       </Paper>
 
       {/* Record Info */}
-      <Paper elevation={2} sx={{ p: 2, mb: 0.75, borderRadius: '8px', bgcolor: '#fff', width: '100%' }}>
+      <Paper elevation={2} sx={{ p: 2, borderRadius: '8px', bgcolor: '#fff', width: '100%' }}>
         <Typography variant="body2" color="text.secondary">
           Product ID: <strong>{id}</strong>
         </Typography>
       </Paper>
+      </Box>
 
       {/* Mutation Error */}
       {updateMutation.isError && (
