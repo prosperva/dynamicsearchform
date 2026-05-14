@@ -269,9 +269,9 @@ export default function ProductEditPage() {
   const handleNext = () => guardedNav(() => router.push(`/products/edit/${id + 1}`));
 
   return (
-    <Container maxWidth={false} sx={{ py: 4, bgcolor: '#f5f5f5', minHeight: '200vh' }}>
-      {/* Sticky header: Toolbar + Record Info */}
-      <Box sx={{ position: 'sticky', top: '32px', zIndex: 1100, bgcolor: '#f5f5f5', pb: 0.75 }}>
+    <Container maxWidth={false} disableGutters sx={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#f5f5f5', px: 3, pt: 4 }}>
+      {/* Fixed header: Toolbar + Record Info */}
+      <Box sx={{ flexShrink: 0, bgcolor: '#f5f5f5', pb: 0.75 }}>
       {/* Toolbar */}
       <Paper
         elevation={2}
@@ -332,6 +332,9 @@ export default function ProductEditPage() {
         </Typography>
       </Paper>
       </Box>
+
+      {/* Scrollable content */}
+      <Box sx={{ flex: 1, overflowY: 'auto', pb: 4 }}>
 
       {/* Mutation Error */}
       {updateMutation.isError && (
@@ -640,6 +643,8 @@ export default function ProductEditPage() {
           <Button onClick={() => setCategoryModalOpen(false)}>Cancel</Button>
         </DialogActions>
       </Dialog>
+
+      </Box>{/* end scrollable content */}
 
       <Snackbar
         open={!!toast}
