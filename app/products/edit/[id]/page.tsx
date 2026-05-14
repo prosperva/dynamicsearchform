@@ -217,6 +217,13 @@ export default function ProductEditPage() {
   // Handle back navigation
   const handleBack = () => guardedNav(() => returnToGrid());
 
+  // Lock body scroll while on this page
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   // Warn on browser close/refresh
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
