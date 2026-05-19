@@ -217,6 +217,14 @@ export default function ProductEditPage() {
   // Handle back navigation
   const handleBack = () => guardedNav(() => returnToGrid());
 
+  // On client-side navigation MUI styles may not be SSR-injected — reload once if so
+  useEffect(() => {
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    if (nav?.type === 'navigate') {
+      window.location.reload();
+    }
+  }, []);
+
   // Lock body scroll while on this page
   useEffect(() => {
     const prev = document.body.style.overflow;
