@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { DropdownOption } from './types';
+import { styles } from './ModalSelectField.styles';
 
 export interface ModalSelectFieldProps {
   label: string;
@@ -178,11 +179,11 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
   };
 
   const labelWithTooltip = tooltip ? (
-    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+    <Box sx={styles.tooltipLabel}>
       {label}
       <Tooltip title={tooltip} arrow placement="top" enterDelay={200} leaveDelay={200}>
-        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', ml: 0.5, cursor: 'help', color: 'action.active' }}>
-          <HelpIcon fontSize="small" sx={{ fontSize: '1rem' }} />
+        <Box component="span" sx={styles.tooltipIcon}>
+          <HelpIcon fontSize="small" sx={styles.helpIcon} />
         </Box>
       </Tooltip>
     </Box>
@@ -191,14 +192,14 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
   const hasValue = allowMultiple ? (Array.isArray(value) && value.length > 0) : !!value;
 
   const buttons = (
-    <Stack direction="row" spacing={0.5} sx={inline ? {} : { mt: 0.5 }}>
+    <Stack direction="row" spacing={0.5} sx={inline ? {} : styles.buttonsStack}>
       <Button
         variant="outlined"
         color="primary"
         onClick={handleOpenModal}
         size="small"
         disabled={disabled}
-        sx={inline ? { whiteSpace: 'nowrap', height: '40px' } : {}}
+        sx={inline ? styles.inlineButton : {}}
       >
         Select
       </Button>
@@ -210,7 +211,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
           size="small"
           startIcon={<ClearIcon />}
           disabled={disabled}
-          sx={inline ? { whiteSpace: 'nowrap', height: '40px' } : {}}
+          sx={inline ? styles.inlineButton : {}}
         >
           Clear
         </Button>
@@ -237,7 +238,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
   return (
     <Box>
       {inline ? (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+        <Box sx={styles.inlineWrapper}>
           {textField}
           {buttons}
         </Box>
@@ -250,11 +251,11 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
         onClose={handleCloseModal}
         maxWidth={columns ? 'md' : 'sm'}
         fullWidth
-        slotProps={{ paper: { sx: { height: '65vh' } } }}
+        slotProps={{ paper: { sx: styles.dialogPaper } }}
       >
         <DialogTitle>{label}</DialogTitle>
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ p: 1.5, pb: 1, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1 }}>
+        <DialogContent sx={styles.dialogContent}>
+          <Box sx={styles.filterBox}>
             <TextField
               fullWidth
               size="small"
@@ -277,13 +278,13 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
           </Box>
 
           {columns ? (
-            <Box sx={{ flex: 1, px: 1.5, pb: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <Box sx={styles.gridContentBox}>
               {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+                <Box sx={styles.loadingBox}>
                   <CircularProgress size={40} />
                 </Box>
               ) : (
-                <Box sx={{ flex: 1, minHeight: 0 }}>
+                <Box sx={styles.gridWrapper}>
                   <DataGrid
                     rows={effectiveRows.filter((row: any) => {
                       if (!filterText.trim()) return true;
@@ -307,19 +308,13 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
                     initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
                     density="compact"
                     hideFooterSelectedRowCount
-                    sx={{
-                      border: 'none',
-                      height: '100%',
-                      '& .MuiDataGrid-row': { cursor: 'pointer' },
-                      '& .MuiDataGrid-row.row-selected': { bgcolor: 'primary.light' },
-                      '& .MuiDataGrid-row.row-selected:hover': { bgcolor: 'primary.light' },
-                    }}
+                    sx={styles.dataGrid}
                     getRowClassName={({ id }) => gridSelection.some(s => String(s) === String(id)) ? 'row-selected' : ''}
                     disableRowSelectionOnClick
                   />
                 </Box>
               )}
-              <Box sx={{ px: 0, py: 1, display: 'flex', gap: 1, borderTop: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
+              <Box sx={styles.actionButtons}>
                 <Button
                   variant="contained"
                   color="primary"
@@ -336,10 +331,10 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
               </Box>
             </Box>
           ) : (
-            <List sx={{ pt: 0, flex: 1, overflow: 'auto' }}>
+            <List sx={styles.list}>
               {loading ? (
                 <ListItem>
-                  <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', py: 4 }}>
+                  <Box sx={styles.listLoadingBox}>
                     <CircularProgress size={40} />
                   </Box>
                 </ListItem>
@@ -348,7 +343,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
                   <ListItem key={option.value} disablePadding>
                     <ListItemButton selected={isSelected(option.value!)} onClick={() => handleSelectOption(option.value!)}>
                       {allowMultiple && (
-                        <Checkbox edge="start" checked={isSelected(option.value!)} tabIndex={-1} disableRipple sx={{ mr: 1 }} />
+                        <Checkbox edge="start" checked={isSelected(option.value!)} tabIndex={-1} disableRipple sx={styles.checkbox} />
                       )}
                       <ListItemText primary={option.label} />
                     </ListItemButton>
@@ -356,7 +351,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
                 ))
               ) : (
                 <ListItem>
-                  <ListItemText primary="No options found" secondary="Try adjusting your filter" sx={{ textAlign: 'center', color: 'text.secondary' }} />
+                  <ListItemText primary="No options found" secondary="Try adjusting your filter" sx={styles.noOptionsText} />
                 </ListItem>
               )}
             </List>
@@ -364,7 +359,7 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
         </DialogContent>
 
         {!columns && (
-          <DialogActions sx={{ flexDirection: 'column', gap: 1, p: 2 }}>
+          <DialogActions sx={styles.dialogActions}>
             <Button
               onClick={() => { onChange(name, pendingValue); handleCloseModal(); }}
               variant="contained"
