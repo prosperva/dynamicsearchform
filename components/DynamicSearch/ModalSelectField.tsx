@@ -25,7 +25,7 @@ import {
   Clear as ClearIcon,
   HelpOutline as HelpIcon,
 } from '@mui/icons-material';
-import { DataGrid, GridColDef, GridPagination } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridPagination, GridRowSelectionModel } from '@mui/x-data-grid';
 import { DropdownOption } from './types';
 
 interface ModalSelectFieldProps {
@@ -46,6 +46,12 @@ interface ModalSelectFieldProps {
   error?: string;
   // Grid mode: when provided, shows a DataGrid with full row details instead of a simple list
   columns?: GridColDef[];
+  // Show Select/Clear buttons inline beside the field instead of below it
+  inline?: boolean;
+  // Which field from the raw row to display as the selected value (defaults to label)
+  displayField?: string;
+  // Whether to show the Clear button (default: true)
+  showClear?: boolean;
 }
 
 export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
@@ -65,6 +71,9 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
   allowMultiple = false,
   error,
   columns,
+  inline = false,
+  displayField,
+  showClear = true,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [filterText, setFilterText] = useState('');
@@ -73,12 +82,19 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
   );
   const [apiOptions, setApiOptions] = useState<DropdownOption[]>([]);
   const [rawRows, setRawRows] = useState<any[]>([]);
-  const [gridSelection, setGridSelection] = useState<(string | number)[]>([]);
+  const [gridSelection, setGridSelection] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
   const [loading, setLoading] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   // Prefer staticOptions (from parent/React Query) when provided, otherwise use internal API fetch
   const options = staticOptions !== undefined ? staticOptions : apiOptions;
+
+  // Sync rawRows from staticOptions so grid mode works when options are passed directly
+  useEffect(() => {
+    if (staticOptions !== undefined) {
+      setRawRows(staticOptions);
+    }
+  }, [staticOptions]);
 
   // Sync selectedValue with value prop when it changes
   useEffect(() => {
@@ -134,16 +150,20 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
 
   // Get display text for selected value(s)
   const displayText = useMemo(() => {
+    const getDisplayValue = (v: string | number) => {
+      if (displayField) {
+        const row = rawRows.find((r: any) => r[apiValueField || 'value'] === v);
+        return row ? String(row[displayField] ?? '') : String(v);
+      }
+      return options.find(opt => opt.value === v)?.label ?? String(v);
+    };
     if (allowMultiple && Array.isArray(value)) {
       if (value.length === 0) return '';
-      const labels = value
-        .map(v => options.find(opt => opt.value === v)?.label)
-        .filter(Boolean);
-      return labels.join(', ');
+      return value.map(getDisplayValue).filter(Boolean).join(', ');
     }
-    const selectedOption = options.find((opt) => opt.value === value);
-    return selectedOption ? selectedOption.label : '';
-  }, [value, options, allowMultiple]);
+    if (!value && value !== 0) return '';
+    return getDisplayValue(value as string | number);
+  }, [value, options, rawRows, allowMultiple, displayField, apiValueField]);
 
   // Filter options: exclude valueless entries (e.g. "-- Any --") and apply search text
   const filteredOptions = useMemo(() => {
@@ -224,49 +244,73 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
     label
   );
 
-  return (
-    <Box>
-      <TextField
-        fullWidth
-        size="small"
-        label={labelWithTooltip}
-        value={displayText}
-        placeholder={placeholder || 'Click Select to choose...'}
-        helperText={error || helperText}
-        required={required}
-        variant="outlined"
-        disabled={disabled}
-        error={!!error}
-        slotProps={{
-          input: {
-            readOnly: true,
-          },
-        }}
-      />
+  const hasValue = allowMultiple ? (Array.isArray(value) && value.length > 0) : !!value;
 
-      <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+  const buttons = (
+    <Stack direction="row" spacing={0.5} sx={inline ? {} : { mt: 0.5 }}>
+      <Button
+        variant="outlined"
+        color="primary"
+        onClick={handleOpenModal}
+        size="small"
+        disabled={disabled}
+        sx={inline ? { whiteSpace: 'nowrap', height: '40px' } : {}}
+      >
+        Select
+      </Button>
+      {showClear && hasValue && (
         <Button
           variant="outlined"
-          color="primary"
-          onClick={handleOpenModal}
+          color="secondary"
+          onClick={handleClear}
           size="small"
+          startIcon={<ClearIcon />}
           disabled={disabled}
+          sx={inline ? { whiteSpace: 'nowrap', height: '40px' } : {}}
         >
-          Select
+          Clear
         </Button>
-        {((allowMultiple && Array.isArray(value) && value.length > 0) || (!allowMultiple && value)) && (
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={handleClear}
+      )}
+    </Stack>
+  );
+
+  return (
+    <Box>
+      {inline ? (
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+          <TextField
+            fullWidth
             size="small"
-            startIcon={<ClearIcon />}
+            label={labelWithTooltip}
+            value={displayText}
+            placeholder={placeholder || 'Click Select to choose...'}
+            helperText={error || helperText}
+            required={required}
+            variant="outlined"
             disabled={disabled}
-          >
-            Clear
-          </Button>
-        )}
-      </Stack>
+            error={!!error}
+            slotProps={{ input: { readOnly: true } }}
+          />
+          {buttons}
+        </Box>
+      ) : (
+        <>
+          <TextField
+            fullWidth
+            size="small"
+            label={labelWithTooltip}
+            value={displayText}
+            placeholder={placeholder || 'Click Select to choose...'}
+            helperText={error || helperText}
+            required={required}
+            variant="outlined"
+            disabled={disabled}
+            error={!!error}
+            slotProps={{ input: { readOnly: true } }}
+          />
+          {buttons}
+        </>
+      )}
 
       {/* Modal Dialog */}
       <Dialog
@@ -331,10 +375,9 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
                   getRowId={(row) => row[apiValueField || 'id']}
                   rowSelectionModel={gridSelection}
                   onRowSelectionModelChange={(model) => {
-                    const ids = (model as any)?.ids
-                      ? Array.from((model as any).ids)
-                      : Array.isArray(model) ? model : [];
-                    setGridSelection(ids as (string | number)[]);
+                    const allIds = Array.from((model as GridRowSelectionModel).ids) as (string | number)[];
+                    const next = allowMultiple ? allIds : allIds.slice(-1);
+                    setGridSelection({ type: 'include', ids: new Set(next) });
                   }}
                   pageSizeOptions={[25, 50, 100]}
                   initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
@@ -349,9 +392,9 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
                             variant="contained"
                             color="primary"
                             fullWidth
-                            disabled={gridSelection.length === 0}
+                            disabled={gridSelection.ids.size === 0}
                             onClick={() => {
-                              const ids = gridSelection;
+                              const ids = Array.from(gridSelection.ids) as (string | number)[];
                               onChange(name, allowMultiple ? ids : ids[0]);
                               handleCloseModal();
                             }}

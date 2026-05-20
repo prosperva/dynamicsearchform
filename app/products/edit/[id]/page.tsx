@@ -22,10 +22,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  List,
-  ListItemButton,
-  ListItemText,
-  InputAdornment,
   FormControlLabel,
   Checkbox,
   IconButton,
@@ -33,8 +29,6 @@ import {
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
-  OpenInNew as OpenInNewIcon,
-  Search as SearchIcon,
   Refresh as RefreshIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
@@ -43,6 +37,7 @@ import { useProduct, useUpdateProduct, type UpdateProductInput } from '@/hooks/u
 import { useCategories } from '@/hooks/useDropdownOptions';
 import AttachmentsSection, { type Attachment } from '@/components/Attachments';
 import AuditHistoryCompact from '@/components/History/AuditHistoryCompact';
+import { ModalSelectField } from '@/components/DynamicSearch/ModalSelectField';
 // import { LockService } from '@/lib/lockService';
 
 // Form validation schema
@@ -78,14 +73,12 @@ export default function ProductEditPage() {
   const router = useRouter();
   // const currentUser = 'demo_user@example.com'; // In production, get from auth context
   // const lockReleasedRef = useRef(false);
-  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState('');
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
   const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
   const [pendingNav, setPendingNav] = useState<(() => void) | null>(null);
   // Only fetch categories when the picker modal is opened — avoids an unnecessary
   // network request on every page load since categories are rarely needed.
-  const { data: categories = [], isLoading: categoriesLoading } = useCategories({ enabled: categoryModalOpen });
+  const { data: categories = [] } = useCategories({ enabled: true });
 
   // Use grid management hook for navigation
   const { returnToGrid } = useGridManagement({
@@ -379,33 +372,29 @@ export default function ProductEditPage() {
             /> */}
 
             {/* Category */}
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-              <Controller
-                name="category"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Category"
-                    error={!!errors.category}
-                    helperText={errors.category?.message}
-                    fullWidth
-                    required
-                    disabled
-                    size="medium"
-                    sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: '#1976d2' }, '&:hover fieldset': { borderColor: '#1565c0' } } }}
-                  />
-                )}
-              />
-              <Button
-                variant="outlined"
-                onClick={() => { setCategoryModalOpen(true); setCategoryFilter(''); }}
-                startIcon={<OpenInNewIcon />}
-                sx={{ whiteSpace: 'nowrap', height: '56px' }}
-              >
-                Move to
-              </Button>
-            </Box>
+            <Controller
+              name="category"
+              control={control}
+              render={({ field }) => (
+                <ModalSelectField
+                  label="Category"
+                  name="category"
+                  value={field.value}
+                  onChange={(_, val) => setValue('category', String(val), { shouldDirty: true })}
+                  options={categories}
+                  required
+                  error={errors.category?.message}
+                  columns={[
+                    { field: 'label', headerName: 'Category', flex: 1 },
+                    { field: 'value', headerName: 'Code', width: 160 },
+                  ]}
+                  apiValueField="value"
+                  displayField="label"
+                  inline
+                  showClear={false}
+                />
+              )}
+            />
 
             {/* Status */}
             <Controller
@@ -605,59 +594,6 @@ export default function ProductEditPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Category Picker Modal */}
-      <Dialog open={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Move to Category</DialogTitle>
-        <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ px: 2, pt: 2, pb: 1 }}>
-            <TextField
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              placeholder="Filter categories..."
-              fullWidth
-              size="small"
-              autoFocus
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-          </Box>
-          <List sx={{ maxHeight: 300, overflow: 'auto' }}>
-            {categoriesLoading ? (
-              <Box display="flex" justifyContent="center" py={3}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : (
-              categories
-                .filter((c) => c.label.toLowerCase().includes(categoryFilter.toLowerCase()))
-                .map((cat) => {
-                  const catValue = String(cat.value ?? '');
-                  return (
-                    <ListItemButton
-                      key={catValue}
-                      selected={getValues('category') === catValue}
-                      onClick={() => {
-                        setValue('category', catValue, { shouldDirty: true });
-                        setCategoryModalOpen(false);
-                      }}
-                    >
-                      <ListItemText primary={cat.label} secondary={catValue} />
-                    </ListItemButton>
-                  );
-                })
-            )}
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCategoryModalOpen(false)}>Cancel</Button>
-        </DialogActions>
-      </Dialog>
 
       </Box>{/* end scrollable content */}
 
