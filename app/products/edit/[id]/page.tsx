@@ -380,7 +380,8 @@ export default function ProductEditPage() {
                   label="Category"
                   name="category"
                   value={field.value}
-                  onChange={(_, val) => setValue('category', String(val), { shouldDirty: true })}
+                  onChange={(_, val) => 
+                    setValue('category', Array.isArray(val) ? String(val[0] ?? '') : String(val ?? ''), { shouldDirty: true })}
                   options={categories}
                   required
                   error={errors.category?.message}

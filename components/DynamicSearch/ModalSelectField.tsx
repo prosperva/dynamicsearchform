@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   TextField,
   Box,
@@ -25,10 +25,10 @@ import {
   Clear as ClearIcon,
   HelpOutline as HelpIcon,
 } from '@mui/icons-material';
-import { DataGrid, GridColDef, GridPagination, GridRowSelectionModel } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridPagination } from '@mui/x-data-grid';
 import { DropdownOption } from './types';
 
-interface ModalSelectFieldProps {
+export interface ModalSelectFieldProps {
   label: string;
   name: string;
   value: string | number | (string | number)[];
@@ -82,9 +82,40 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
   );
   const [apiOptions, setApiOptions] = useState<DropdownOption[]>([]);
   const [rawRows, setRawRows] = useState<any[]>([]);
-  const [gridSelection, setGridSelection] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
+  const [gridSelection, setGridSelection] = useState<(string | number)[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+
+  // Stable refs to avoid recreating the footer component on every render
+  const gridSelectionRef = useRef(gridSelection);
+  useEffect(() => { gridSelectionRef.current = gridSelection; }, [gridSelection]);
+  const footerCallbackRef = useRef({ onChange, name, allowMultiple, handleCloseModal: () => {} });
+
+  const GridFooter = useCallback(() => {
+    const { onChange, name, allowMultiple } = footerCallbackRef.current;
+    return (
+      <Box>
+        <Box sx={{ px: 1.5, pt: 1, display: 'flex', gap: 1 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            fullWidth
+            disabled={gridSelectionRef.current.length === 0}
+            onClick={() => {
+              const sel = gridSelectionRef.current;
+              onChange(name, allowMultiple ? sel : sel[0]);
+              footerCallbackRef.current.handleCloseModal();
+            }}
+          >
+            Select
+          </Button>
+          <Button fullWidth onClick={() => footerCallbackRef.current.handleCloseModal()}>Cancel</Button>
+        </Box>
+        <GridPagination />
+      </Box>
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Prefer staticOptions (from parent/React Query) when provided, otherwise use internal API fetch
   const options = staticOptions !== undefined ? staticOptions : apiOptions;
@@ -185,6 +216,9 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
     setModalOpen(false);
     setFilterText('');
   };
+
+  // Keep footer ref up to date
+  footerCallbackRef.current = { onChange, name, allowMultiple, handleCloseModal };
 
   const handleSelectOption = (optionValue: string | number) => {
     if (allowMultiple) {
@@ -372,41 +406,18 @@ export const ModalSelectField: React.FC<ModalSelectFieldProps> = ({
                     );
                   })}
                   columns={columns}
-                  getRowId={(row) => row[apiValueField || 'id']}
-                  rowSelectionModel={gridSelection}
+                  getRowId={(row) => row[apiValueField || 'value'] ?? row['id'] ?? row['label']}
+                  rowSelectionModel={{ type: 'include', ids: new Set(gridSelection) } as any}
                   onRowSelectionModelChange={(model) => {
-                    const allIds = Array.from((model as GridRowSelectionModel).ids) as (string | number)[];
-                    const next = allowMultiple ? allIds : allIds.slice(-1);
-                    setGridSelection({ type: 'include', ids: new Set(next) });
+                    const allIds = Array.from((model as any)?.ids ?? []) as (string | number)[];
+                    setGridSelection(allowMultiple ? allIds : allIds.slice(-1));
                   }}
                   pageSizeOptions={[25, 50, 100]}
                   initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
                   density="compact"
                   disableMultipleRowSelection={!allowMultiple}
                   sx={{ border: 'none' }}
-                  slots={{
-                    footer: () => (
-                      <Box>
-                        <Box sx={{ px: 1.5, pt: 1, display: 'flex', gap: 1 }}>
-                          <Button
-                            variant="contained"
-                            color="primary"
-                            fullWidth
-                            disabled={gridSelection.ids.size === 0}
-                            onClick={() => {
-                              const ids = Array.from(gridSelection.ids) as (string | number)[];
-                              onChange(name, allowMultiple ? ids : ids[0]);
-                              handleCloseModal();
-                            }}
-                          >
-                            Select
-                          </Button>
-                          <Button fullWidth onClick={handleCloseModal}>Cancel</Button>
-                        </Box>
-                        <GridPagination />
-                      </Box>
-                    ),
-                  }}
+                  slots={{ footer: GridFooter }}
                 />
               )}
             </Box>
